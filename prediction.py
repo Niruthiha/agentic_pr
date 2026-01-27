@@ -1,3 +1,4 @@
+# results here -> prediction.txt
 # Predict whether a GitHub PR will be merged (is_merged) using a Random Forest classifier.
 #Load data — 31,284 PRs with 73 features
 #Clean data — Drops leaky columns (like merged_at which would reveal the answer) and redundant columns (highly correlated features like additions ≈ total_changes)
