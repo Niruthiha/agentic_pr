@@ -2,6 +2,8 @@
 
 # Data Processing and Feature Engineering Methodology
 
+A granular definition of every column in this dataset is available at data_dictionary.md
+
 To ensure reproducibility, this project utilizes a strict "Point-in-Time" feature engineering pipeline that prevents data leakage by calculating historical features only using data available prior to each Pull Request's creation.
 
 
