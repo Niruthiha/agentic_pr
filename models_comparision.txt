@@ -1,118 +1,126 @@
 ======================================================================
-LOADING AND PREPARING DATA
+LOADING AND PREPARING DATA (V2 - With New Features)
 ======================================================================
-Categorical Features: 9
-Numerical Features:   34
-Train Size: 25027 | Test Size: 6257
+Total Features: 59
+Categorical: 9 | Numerical: 39 | Boolean: 11
 
-Verifying Test Set Ratios (Agent):
-agent
-OpenAI_Codex    0.671088
-Devin           0.149433
-Copilot         0.124341
-Cursor          0.042992
-Claude_Code     0.012146
-Name: proportion, dtype: float64
+✅ NEW Features Found: 5
+   - agent_historical_ci_pass_rate: mean=0.640, missing=0
+   - user_historical_ci_pass_rate: mean=0.486, missing=0
+   - repo_avg_ci_fail_rate: mean=0.526, missing=0
+   - agent_avg_review_rounds: mean=1.561, missing=0
+   - repo_avg_time_to_merge: mean=20.225, missing=0
+
+Train Size: 25027 | Test Size: 6257
+Target Distribution - Merged: 76.8% | Rejected: 23.2%
 
 ======================================================================
 DEFINING MODEL PIPELINES
 ======================================================================
+Models to train: ['Logistic Regression', 'Decision Tree', 'Random Forest', 'Gradient Boosting', 'XGBoost']
+
+======================================================================
+TRAINING AND EVALUATING MODELS
+======================================================================
 
 Training Logistic Regression...
-  -> AUC: 0.7776 | F1 (Merged): 0.8109 | F1 (Rejected): 0.5307
+  -> AUC: 0.7842 | F1_Merged: 0.8038 | F1_Rejected: 0.5289
 
 Training Decision Tree...
-  -> AUC: 0.7860 | F1 (Merged): 0.8342 | F1 (Rejected): 0.5341
+  -> AUC: 0.7851 | F1_Merged: 0.8311 | F1_Rejected: 0.5308
 
 Training Random Forest...
-  -> AUC: 0.8546 | F1 (Merged): 0.8970 | F1 (Rejected): 0.6010
+  -> AUC: 0.8575 | F1_Merged: 0.8985 | F1_Rejected: 0.6075
 
 Training Gradient Boosting...
-  -> AUC: 0.8450 | F1 (Merged): 0.8541 | F1 (Rejected): 0.5904
+  -> AUC: 0.8495 | F1_Merged: 0.8564 | F1_Rejected: 0.5992
+
+Training XGBoost...
+  -> AUC: 0.8531 | F1_Merged: 0.8903 | F1_Rejected: 0.6206
 
 ======================================================================
 FINAL MODEL LEADERBOARD
 ======================================================================
-              Model  ROC-AUC  Accuracy  Precision (Merged)  Recall (Merged)  F1 (Merged)  Precision (Rejected)  Recall (Rejected)  F1 (Rejected)
-      Random Forest   0.8546    0.8362              0.8750           0.9202       0.8970                0.6649             0.5462         0.6010
-  Gradient Boosting   0.8450    0.7849              0.9004           0.8124       0.8541                0.5160             0.6899         0.5904
-      Decision Tree   0.7860    0.7555              0.8792           0.7937       0.8342                0.4670             0.6238         0.5341
-Logistic Regression   0.7776    0.7304              0.8889           0.7454       0.8109                0.4358             0.6785         0.5307
+              Model  ROC-AUC  Accuracy  Precision_Merged  Recall_Merged  F1_Merged  Precision_Rejected  Recall_Rejected  F1_Rejected
+      Random Forest   0.8575    0.8387            0.8773         0.9208     0.8985              0.6704           0.5555       0.6075
+            XGBoost   0.8531    0.8298            0.8898         0.8907     0.8903              0.6217           0.6195       0.6206
+  Gradient Boosting   0.8495    0.7886            0.9044         0.8132     0.8564              0.5219           0.7034       0.5992
+      Decision Tree   0.7851    0.7516            0.8789         0.7883     0.8311              0.4612           0.6252       0.5308
+Logistic Regression   0.7842    0.7230            0.8913         0.7320     0.8038              0.4281           0.6920       0.5289
 
-Saved: model_comparison_results.csv
-
-======================================================================
-EXTRACTING HUMAN-READABLE RULES
-======================================================================
-|--- follower_to_following_ratio <= 1.86
-|   |--- num_unique_committers <= 1.50
-|   |   |--- agent_x_has_tests <= 7.50
-|   |   |   |--- num_files <= 0.50
-|   |   |   |   |--- truncated branch of depth 2
-|   |   |   |--- num_files >  0.50
-|   |   |   |   |--- truncated branch of depth 2
-|   |   |--- agent_x_has_tests >  7.50
-|   |   |   |--- user_prior_pr_count_total <= 319.00
-|   |   |   |   |--- truncated branch of depth 2
-|   |   |   |--- user_prior_pr_count_total >  319.00
-|   |   |   |   |--- truncated branch of depth 2
-|   |--- num_unique_committers >  1.50
-|   |   |--- net_change <= 217.50
-|   |   |   |--- repo_stars <= 7015.00
-|   |   |   |   |--- truncated branch of depth 2
-|   |   |   |--- repo_stars >  7015.00
-|   |   |   |   |--- truncated branch of depth 2
-|   |   |--- net_change >  217.50
-|   |   |   |--- user_prior_pr_count_total <= 1.50
-|   |   |   |   |--- truncated branch of depth 2
-|   |   |   |--- user_prior_pr_count_total >  1.50
-|   |   |   |   |--- truncated branch of depth 2
-|--- follower_to_following_ratio >  1.86
-|   |--- repo_stars <= 518.00
-|   |   |--- follower_to_following_ratio <= 60.27
-|   |   |   |--- user_prior_merge_rate_total <= 0.84
-|   |   |   |   |--- truncated branch of depth 2
-|   |   |   |--- user_prior_merge_rate_total >  0.84
-|   |   |   |   |--- truncated branch of depth 2
-|   |   |--- follower_to_following_ratio >  60.27
-|   |   |   |--- stars_to_forks_ratio <= 4.75
-|   |   |   |   |--- truncated branch of depth 2
-|   |   |   |--- stars_to_forks_ratio >  4.75
-|   |   |   |   |--- truncated branch of depth 2
-|   |--- repo_stars >  518.00
-|   |   |--- user_prior_pr_count_total <= 109.00
-|   |   |   |--- net_change <= 13.50
-|   |   |   |   |--- truncated branch of depth 2
-|   |   |   |--- net_change >  13.50
-|   |   |   |   |--- truncated branch of depth 2
-|   |   |--- user_prior_pr_count_total >  109.00
-|   |   |   |--- body_length <= 626.50
-|   |   |   |   |--- truncated branch of depth 2
-|   |   |   |--- body_length >  626.50
-|   |   |   |   |--- truncated branch of depth 2
-
+Saved: model_comparison_results_v2.csv
 
 ======================================================================
-PER-AGENT PERFORMANCE (Random Forest)
+FEATURE IMPORTANCE: NEW FEATURES IMPACT
 ======================================================================
-       Agent  ROC-AUC  Accuracy  Count
-     Copilot    0.844     0.738    778
-OpenAI_Codex    0.832     0.883   4199
-      Cursor    0.811     0.818    269
-       Devin    0.803     0.724    935
- Claude_Code    0.667     0.724     76
 
-Saved: per_agent_performance.csv
+TOP 20 FEATURES (Random Forest):
+                      feature  importance
+  follower_to_following_ratio      0.0494
+       repo_avg_time_to_merge      0.0478
+             account_age_days      0.0459
+                   repo_stars      0.0422
+               user_followers      0.0355
+    user_prior_pr_count_total      0.0348
+          repo_prior_pr_count      0.0336
+                total_changes      0.0316
+         avg_changes_per_file      0.0288
+               user_following      0.0280
+                  body_length      0.0279
+                   net_change      0.0267
+agent_prior_merge_rate_global      0.0258
+ user_historical_ci_pass_rate      0.0246
+         stars_to_forks_ratio      0.0230
+                    num_files      0.0211
+                add_del_ratio      0.0209
+             repo_avg_pr_size      0.0206
+          repo_avg_file_count      0.0204
+               pr_size_zscore      0.0203
+
+🆕 NEW FEATURES RANKING:
+   agent_historical_ci_pass_rate: Rank #44, Importance=0.0105
+   user_historical_ci_pass_rate: Rank #45, Importance=0.0246
+   repo_avg_ci_fail_rate: Rank #46, Importance=0.0161
+   agent_avg_review_rounds: Rank #47, Importance=0.0175
+   repo_avg_time_to_merge: Rank #48, Importance=0.0478
+
+Saved: feature_importances_v2.csv
+
+======================================================================
+PER-AGENT PERFORMANCE (Best Model)
+======================================================================
+Using: Random Forest
+       Agent  ROC-AUC  Accuracy  F1_Rejected  Count
+     Copilot    0.847     0.733        0.739    778
+OpenAI_Codex    0.834     0.885        0.384   4199
+      Cursor    0.820     0.818        0.424    269
+       Devin    0.815     0.733        0.716    935
+ Claude_Code    0.651     0.763        0.250     76
+
+Saved: per_agent_performance_v2.csv
 
 ======================================================================
 GENERATING SHAP PLOTS
 ======================================================================
-Saved: shap_ambition_proof.png
+Saved: shap_analysis_v2.png
 
 ======================================================================
-ANALYSIS COMPLETE
+ABLATION STUDY: Impact of New Features
+======================================================================
+            Metric  Without New Features  With New Features  Improvement  % Change
+           ROC-AUC                0.8540             0.8575       0.0034    0.4000
+       F1_Rejected                0.6017             0.6075       0.0058    0.9700
+   Recall_Rejected                0.5448             0.5555       0.0107    1.9600
+Precision_Rejected                0.6719             0.6704      -0.0015   -0.2300
+
+Saved: ablation_study_new_features.csv
+
+======================================================================
+ANALYSIS COMPLETE - V2
 ======================================================================
 Output files generated:
-  - model_comparison_results.csv
-  - per_agent_performance.csv
-  - shap_ambition_proof.png
+  - model_comparison_results_v2.csv
+  - feature_importances_v2.csv
+  - per_agent_performance_v2.csv
+  - shap_analysis_v2.png
+  - ablation_study_new_features.csv
