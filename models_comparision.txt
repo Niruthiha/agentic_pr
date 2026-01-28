@@ -19,25 +19,27 @@ DEFINING MODEL PIPELINES
 ======================================================================
 
 Training Logistic Regression...
-  -> AUC: 0.7776 | Precision (Rej): 0.4358
+  -> AUC: 0.7776 | F1 (Merged): 0.8109 | F1 (Rejected): 0.5307
 
 Training Decision Tree...
-  -> AUC: 0.7860 | Precision (Rej): 0.4670
+  -> AUC: 0.7860 | F1 (Merged): 0.8342 | F1 (Rejected): 0.5341
 
 Training Random Forest...
-  -> AUC: 0.8546 | Precision (Rej): 0.6649
+  -> AUC: 0.8546 | F1 (Merged): 0.8970 | F1 (Rejected): 0.5998
 
 Training Gradient Boosting...
-  -> AUC: 0.8450 | Precision (Rej): 0.5160
+  -> AUC: 0.8450 | F1 (Merged): 0.8541 | F1 (Rejected): 0.5904
 
 ======================================================================
 FINAL MODEL LEADERBOARD
 ======================================================================
-              Model  ROC-AUC  Precision (Rejected)  Recall (Rejected)  F1 (Rejected)  Accuracy
-      Random Forest   0.8546                0.6649             0.5462         0.5998    0.8362
-  Gradient Boosting   0.8450                0.5160             0.6899         0.5904    0.7849
-      Decision Tree   0.7860                0.4670             0.6238         0.5341    0.7555
-Logistic Regression   0.7776                0.4358             0.6785         0.5307    0.7304
+              Model  ROC-AUC  Accuracy  Precision (Merged)  Recall (Merged)  F1 (Merged)  Precision (Rejected)  Recall (Rejected)  F1 (Rejected)
+      Random Forest   0.8546    0.8362              0.8750           0.9202       0.8970                0.6649             0.5462         0.5998
+  Gradient Boosting   0.8450    0.7849              0.9004           0.8124       0.8541                0.5160             0.6899         0.5904
+      Decision Tree   0.7860    0.7555              0.8792           0.7937       0.8342                0.4670             0.6238         0.5341
+Logistic Regression   0.7776    0.7304              0.8889           0.7454       0.8109                0.4358             0.6785         0.5307
+
+Saved: model_comparison_results.csv
 
 ======================================================================
 EXTRACTING HUMAN-READABLE RULES
@@ -99,3 +101,18 @@ OpenAI_Codex    0.832     0.883   4199
       Cursor    0.811     0.818    269
        Devin    0.803     0.724    935
  Claude_Code    0.667     0.724     76
+
+Saved: per_agent_performance.csv
+
+======================================================================
+GENERATING SHAP PLOTS
+======================================================================
+Saved: shap_ambition_proof.png
+
+======================================================================
+ANALYSIS COMPLETE
+======================================================================
+Output files generated:
+  - model_comparison_results.csv
+  - per_agent_performance.csv
+  - shap_ambition_proof.png
