@@ -1,26 +1,27 @@
 """
-FINAL AGENTIC PR ANALYSIS SCRIPT (AGENT-ONLY STRATIFICATION)
-============================================================
-1. Stratified Split by AGENT ONLY (Preserves Agent Ratios, ignores Outcome)
-2. Robust Pipelines (No Data Leakage / Handles Unknown Categories)
-3. "Fair Fight" Model Comparison
-4. SHAP Interpretation for "Ambition Trade-off"
+FINAL AGENTIC PR ANALYSIS SCRIPT V2
+===================================
+UPDATES:
+- Added 5 new Historical CI & Review features
+- Added XGBoost model
+- Updated leaky columns list
+- Added feature group analysis
 """
 
 import pandas as pd
 import numpy as np
 import shap
 import matplotlib.pyplot as plt
-import seaborn as sns
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier, export_text, plot_tree
+from sklearn.tree import DecisionTreeClassifier, export_text
 from sklearn.ensemble import RandomForestClassifier, HistGradientBoostingClassifier
+from xgboost import XGBClassifier
 from sklearn.metrics import (classification_report, roc_auc_score, 
-                             accuracy_score, f1_score, precision_score, recall_score, confusion_matrix)
+                             accuracy_score, f1_score, precision_score, recall_score)
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -28,80 +29,90 @@ warnings.filterwarnings('ignore')
 # 1. LOAD AND PREPARE DATA
 # =============================================================================
 print("="*70)
-print("LOADING AND PREPARING DATA")
+print("LOADING AND PREPARING DATA (V2 - With New Features)")
 print("="*70)
 
-# Load Data
-df = pd.read_parquet('/home/niruthi/ai_code/data/engineered_features.parquet')
+# Load Data - NOW WITH NEW FEATURES
+df = pd.read_parquet('/home/niruthi/ai_code/data_with_raw_ci_reviews.parquet')
 
-# Define Leaky & Redundant Columns
-leaky_cols = ['merged_at', 'closed_at', 'state', 'id', 'number', 'user_id', 'repo_id',
-              'title', 'body', 'html_url', 'repo_url', 'created_at', 'user_account_created',
-              'user', 'month']
+# Define Leaky & Redundant Columns (UPDATED)
+leaky_cols = [
+    # Original leaky columns
+    'merged_at', 'closed_at', 'state', 'id', 'number', 'user_id', 'repo_id',
+    'title', 'body', 'html_url', 'repo_url', 'created_at', 'user_account_created',
+    'user', 'month',
+    # NEW: Leaky columns from API fetch (post-submission data)
+    'ci_passed',      # This PR's actual CI result - LEAKY
+    'review_count',   # This PR's actual review count - LEAKY
+]
 redundant_cols = ['additions', 'deletions', 'repo_forks']
 
-# Drop columns but KEEP target and stratification helpers
+# Drop columns
 df_clean = df.drop(columns=leaky_cols + redundant_cols, errors='ignore')
 
 # Define X (Features) and y (Target)
-# Note: We keep 'agent' in X for now to use it as a feature
 X = df_clean.drop(columns=['is_merged'])
 y = df_clean['is_merged']
 
-# --- AGENT-ONLY STRATIFICATION ---
-# We use the raw 'agent' column for stratification.
-# This ensures the Test Set has the exact same mix of Agents as the real world.
+# Stratify by agent
 stratify_col = df_clean['agent']
 
-# Identify Column Types automatically
+# Identify Column Types
 cat_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
 bool_cols = X.select_dtypes(include=['bool']).columns.tolist()
 num_cols = X.select_dtypes(include=['number']).columns.tolist()
-# Remove bools from nums
 num_cols = [c for c in num_cols if c not in bool_cols]
 
-print(f"Categorical Features: {len(cat_cols)}")
-print(f"Numerical Features:   {len(num_cols)}")
+# Identify NEW features
+new_features = [
+    'agent_historical_ci_pass_rate',
+    'user_historical_ci_pass_rate', 
+    'repo_avg_ci_fail_rate',
+    'agent_avg_review_rounds',
+    'repo_avg_time_to_merge'
+]
+new_features_present = [f for f in new_features if f in X.columns]
 
-# SPLIT DATA (Stratified by Agent ONLY)
+print(f"Total Features: {X.shape[1]}")
+print(f"Categorical: {len(cat_cols)} | Numerical: {len(num_cols)} | Boolean: {len(bool_cols)}")
+print(f"\n✅ NEW Features Found: {len(new_features_present)}")
+for f in new_features_present:
+    print(f"   - {f}: mean={X[f].mean():.3f}, missing={X[f].isna().sum()}")
+
+# SPLIT DATA
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, 
-    test_size=0.2, 
-    random_state=42, 
-    stratify=stratify_col  # <--- CHANGED: Stratifies by Agent only
+    X, y, test_size=0.2, random_state=42, stratify=stratify_col
 )
-
-# Extract 'test_agents' for later analysis
 test_agents = X_test['agent'].copy()
 
-print(f"Train Size: {len(X_train)} | Test Size: {len(X_test)}")
-print("\nVerifying Test Set Ratios (Agent):")
-print(test_agents.value_counts(normalize=True).head(5))
+print(f"\nTrain Size: {len(X_train)} | Test Size: {len(X_test)}")
+print(f"Target Distribution - Merged: {y.mean():.1%} | Rejected: {1-y.mean():.1%}")
 
 # =============================================================================
-# 2. DEFINE ROBUST PIPELINES
+# 2. DEFINE ROBUST PIPELINES (Including XGBoost)
 # =============================================================================
 print("\n" + "="*70)
 print("DEFINING MODEL PIPELINES")
 print("="*70)
 
-# Preprocessor for Tree Models (Random Forest, GBM, DT)
-# Use OrdinalEncoder which handles unknown categories (e.g., new repos) safely
+# Preprocessor for Tree Models
 tree_preprocessor = ColumnTransformer(transformers=[
     ('cat', OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1), cat_cols),
     ('num', 'passthrough', num_cols),
     ('bool', 'passthrough', bool_cols)
 ], verbose_feature_names_out=False)
 
-# Preprocessor for Linear Models (Logistic Regression)
-# Use OneHotEncoder for mathematical validity
+# Preprocessor for Linear Models
 linear_preprocessor = ColumnTransformer(transformers=[
     ('cat', OneHotEncoder(handle_unknown='ignore', max_categories=20, sparse_output=False), cat_cols),
     ('num', StandardScaler(), num_cols),
     ('bool', 'passthrough', bool_cols)
 ])
 
-# Define Models
+# Calculate scale_pos_weight for XGBoost (handles imbalance)
+scale_pos_weight = (y_train == 0).sum() / (y_train == 1).sum()
+
+# Define Models (ADDED XGBoost)
 models = {
     'Logistic Regression': Pipeline([
         ('prep', linear_preprocessor),
@@ -113,144 +124,242 @@ models = {
     ]),
     'Random Forest': Pipeline([
         ('prep', tree_preprocessor),
-        ('clf', RandomForestClassifier(n_estimators=200, max_depth=15, class_weight='balanced', n_jobs=-1, random_state=42))
+        ('clf', RandomForestClassifier(
+            n_estimators=200, max_depth=15, 
+            class_weight='balanced', n_jobs=-1, random_state=42
+        ))
     ]),
     'Gradient Boosting': Pipeline([
         ('prep', tree_preprocessor),
         ('clf', HistGradientBoostingClassifier(class_weight='balanced', random_state=42))
+    ]),
+    'XGBoost': Pipeline([
+        ('prep', tree_preprocessor),
+        ('clf', XGBClassifier(
+            n_estimators=200,
+            max_depth=10,
+            learning_rate=0.1,
+            scale_pos_weight=scale_pos_weight,  # Handle imbalance
+            eval_metric='auc',
+            use_label_encoder=False,
+            n_jobs=-1,
+            random_state=42
+        ))
     ])
 }
+
+print(f"Models to train: {list(models.keys())}")
 
 # =============================================================================
 # 3. TRAIN AND EVALUATE
 # =============================================================================
+print("\n" + "="*70)
+print("TRAINING AND EVALUATING MODELS")
+print("="*70)
+
 results = []
 
 for name, pipe in models.items():
     print(f"\nTraining {name}...")
     pipe.fit(X_train, y_train)
     
-    # Predict
     y_pred = pipe.predict(X_test)
     y_proba = pipe.predict_proba(X_test)[:, 1]
     
-    # Metrics
     res = {
         'Model': name,
         'ROC-AUC': roc_auc_score(y_test, y_proba),
         'Accuracy': accuracy_score(y_test, y_pred),
-        # Merged class metrics (pos_label=1)
-        'Precision (Merged)': precision_score(y_test, y_pred, pos_label=1),
-        'Recall (Merged)': recall_score(y_test, y_pred, pos_label=1),
-        'F1 (Merged)': f1_score(y_test, y_pred, pos_label=1),
-        # Rejected class metrics (pos_label=0)
-        'Precision (Rejected)': precision_score(y_test, y_pred, pos_label=0),
-        'Recall (Rejected)': recall_score(y_test, y_pred, pos_label=0),
-        'F1 (Rejected)': f1_score(y_test, y_pred, pos_label=0),
+        'Precision_Merged': precision_score(y_test, y_pred, pos_label=1),
+        'Recall_Merged': recall_score(y_test, y_pred, pos_label=1),
+        'F1_Merged': f1_score(y_test, y_pred, pos_label=1),
+        'Precision_Rejected': precision_score(y_test, y_pred, pos_label=0),
+        'Recall_Rejected': recall_score(y_test, y_pred, pos_label=0),
+        'F1_Rejected': f1_score(y_test, y_pred, pos_label=0),
     }
     results.append(res)
-    print(f"  -> AUC: {res['ROC-AUC']:.4f} | F1 (Merged): {res['F1 (Merged)']:.4f} | F1 (Rejected): {res['F1 (Rejected)']:.4f}")
+    print(f"  -> AUC: {res['ROC-AUC']:.4f} | F1_Merged: {res['F1_Merged']:.4f} | F1_Rejected: {res['F1_Rejected']:.4f}")
 
-# Display Comparison
+# Leaderboard
 results_df = pd.DataFrame(results).sort_values('ROC-AUC', ascending=False)
 print("\n" + "="*70)
 print("FINAL MODEL LEADERBOARD")
 print("="*70)
 print(results_df.to_string(index=False, float_format='%.4f'))
 
-# Save Model Comparison to CSV
-results_df.to_csv('model_comparison_results.csv', index=False)
-print("\nSaved: model_comparison_results.csv")
+results_df.to_csv('model_comparison_results_v2.csv', index=False)
+print("\nSaved: model_comparison_results_v2.csv")
 
 # =============================================================================
-# 4. INTERPRETABLE RULES (From Decision Tree)
+# 4. FEATURE IMPORTANCE COMPARISON (New vs Old Features)
 # =============================================================================
 print("\n" + "="*70)
-print("EXTRACTING HUMAN-READABLE RULES")
+print("FEATURE IMPORTANCE: NEW FEATURES IMPACT")
 print("="*70)
 
-# Access the trained Decision Tree
-dt_pipe = models['Decision Tree']
-dt_model = dt_pipe.named_steps['clf']
+# Get feature names after preprocessing
+rf_pipe = models['Random Forest']
+rf_prep = rf_pipe.named_steps['prep']
+rf_clf = rf_pipe.named_steps['clf']
 
-# Get feature names from preprocessor
 try:
-    feature_names = dt_pipe.named_steps['prep'].get_feature_names_out()
+    feature_names = list(rf_prep.get_feature_names_out())
 except:
     feature_names = cat_cols + num_cols + bool_cols
 
-# Export Rules
-tree_rules = export_text(dt_model, feature_names=list(feature_names), max_depth=3)
-print(tree_rules)
+# Feature importances
+feat_imp = pd.DataFrame({
+    'feature': feature_names,
+    'importance': rf_clf.feature_importances_
+}).sort_values('importance', ascending=False)
+
+print("\nTOP 20 FEATURES (Random Forest):")
+print(feat_imp.head(20).to_string(index=False, float_format='%.4f'))
+
+# Check where NEW features rank
+print("\n🆕 NEW FEATURES RANKING:")
+for feat in new_features_present:
+    if feat in feat_imp['feature'].values:
+        rank = feat_imp[feat_imp['feature'] == feat].index[0] + 1
+        imp = feat_imp[feat_imp['feature'] == feat]['importance'].values[0]
+        print(f"   {feat}: Rank #{rank}, Importance={imp:.4f}")
+
+feat_imp.to_csv('feature_importances_v2.csv', index=False)
+print("\nSaved: feature_importances_v2.csv")
 
 # =============================================================================
-# 5. PER-AGENT PERFORMANCE CHECK
+# 5. PER-AGENT PERFORMANCE (Best Model)
 # =============================================================================
 print("\n" + "="*70)
-print("PER-AGENT PERFORMANCE (Random Forest)")
+print("PER-AGENT PERFORMANCE (Best Model)")
 print("="*70)
 
-rf_pipe = models['Random Forest']
-y_pred_rf = rf_pipe.predict(X_test)
-y_proba_rf = rf_pipe.predict_proba(X_test)[:, 1]
+# Use best model based on ROC-AUC
+best_model_name = results_df.iloc[0]['Model']
+best_pipe = models[best_model_name]
+print(f"Using: {best_model_name}")
+
+y_pred_best = best_pipe.predict(X_test)
+y_proba_best = best_pipe.predict_proba(X_test)[:, 1]
 
 agent_metrics = []
 for agent in test_agents.unique():
     mask = (test_agents == agent)
-    if mask.sum() > 10: # Only check agents with enough data
-        auc = roc_auc_score(y_test[mask], y_proba_rf[mask])
-        acc = accuracy_score(y_test[mask], y_pred_rf[mask])
-        agent_metrics.append({'Agent': agent, 'ROC-AUC': auc, 'Accuracy': acc, 'Count': mask.sum()})
+    if mask.sum() > 10:
+        auc = roc_auc_score(y_test[mask], y_proba_best[mask])
+        acc = accuracy_score(y_test[mask], y_pred_best[mask])
+        f1_rej = f1_score(y_test[mask], y_pred_best[mask], pos_label=0)
+        agent_metrics.append({
+            'Agent': agent, 
+            'ROC-AUC': auc, 
+            'Accuracy': acc, 
+            'F1_Rejected': f1_rej,
+            'Count': mask.sum()
+        })
 
 agent_df = pd.DataFrame(agent_metrics).sort_values('ROC-AUC', ascending=False)
 print(agent_df.to_string(index=False, float_format='%.3f'))
 
-# Save Per-Agent Performance to CSV
-agent_df.to_csv('per_agent_performance.csv', index=False)
-print("\nSaved: per_agent_performance.csv")
+agent_df.to_csv('per_agent_performance_v2.csv', index=False)
+print("\nSaved: per_agent_performance_v2.csv")
 
 # =============================================================================
-# 6. SHAP ANALYSIS (The Ambition Trade-off)
+# 6. SHAP ANALYSIS
 # =============================================================================
 print("\n" + "="*70)
 print("GENERATING SHAP PLOTS")
 print("="*70)
 
-# 1. Prepare Data for SHAP
-# We must transform the raw X_test using the pipeline's preprocessor first
-rf_prep = rf_pipe.named_steps['prep']
-rf_clf = rf_pipe.named_steps['clf']
-
-# Sample 1000 points for speed
-X_shap_sample = X_test.sample(n=1000, random_state=42)
+# Sample for speed
+X_shap_sample = X_test.sample(n=min(1000, len(X_test)), random_state=42)
 X_shap_transformed = rf_prep.transform(X_shap_sample)
 
-# 2. Create Explainer
 explainer = shap.TreeExplainer(rf_clf)
 shap_values = explainer.shap_values(X_shap_transformed)
 
-# Handle Binary Classification output
 if isinstance(shap_values, list):
     shap_values = shap_values[1]
 
-# 3. Plot Beeswarm
-plt.figure(figsize=(12, 8))
+plt.figure(figsize=(12, 10))
 shap.summary_plot(
     shap_values, 
     X_shap_transformed, 
     feature_names=feature_names,
-    max_display=15, 
+    max_display=20, 
     show=False
 )
-plt.title("Why are PRs Rejected? (SHAP Feature Impact)")
+plt.title("Feature Impact on PR Merge Prediction (SHAP Values)")
 plt.tight_layout()
-plt.savefig('shap_ambition_proof.png', dpi=300, bbox_inches='tight')
-print("Saved: shap_ambition_proof.png")
+plt.savefig('shap_analysis_v2.png', dpi=300, bbox_inches='tight')
+print("Saved: shap_analysis_v2.png")
 
+# =============================================================================
+# 7. ABLATION STUDY: With vs Without New Features
+# =============================================================================
 print("\n" + "="*70)
-print("ANALYSIS COMPLETE")
+print("ABLATION STUDY: Impact of New Features")
+print("="*70)
+
+# Train RF without new features
+X_train_old = X_train.drop(columns=new_features_present, errors='ignore')
+X_test_old = X_test.drop(columns=new_features_present, errors='ignore')
+
+# Update column lists for old features
+cat_cols_old = [c for c in cat_cols if c not in new_features_present]
+num_cols_old = [c for c in num_cols if c not in new_features_present]
+bool_cols_old = [c for c in bool_cols if c not in new_features_present]
+
+tree_prep_old = ColumnTransformer(transformers=[
+    ('cat', OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1), cat_cols_old),
+    ('num', 'passthrough', num_cols_old),
+    ('bool', 'passthrough', bool_cols_old)
+], verbose_feature_names_out=False)
+
+rf_old = Pipeline([
+    ('prep', tree_prep_old),
+    ('clf', RandomForestClassifier(n_estimators=200, max_depth=15, 
+                                   class_weight='balanced', n_jobs=-1, random_state=42))
+])
+
+rf_old.fit(X_train_old, y_train)
+y_pred_old = rf_old.predict(X_test_old)
+y_proba_old = rf_old.predict_proba(X_test_old)[:, 1]
+
+# Compare
+ablation_results = {
+    'Metric': ['ROC-AUC', 'F1_Rejected', 'Recall_Rejected', 'Precision_Rejected'],
+    'Without New Features': [
+        roc_auc_score(y_test, y_proba_old),
+        f1_score(y_test, y_pred_old, pos_label=0),
+        recall_score(y_test, y_pred_old, pos_label=0),
+        precision_score(y_test, y_pred_old, pos_label=0)
+    ],
+    'With New Features': [
+        roc_auc_score(y_test, y_proba_best) if best_model_name == 'Random Forest' else roc_auc_score(y_test, rf_pipe.predict_proba(X_test)[:, 1]),
+        f1_score(y_test, rf_pipe.predict(X_test), pos_label=0),
+        recall_score(y_test, rf_pipe.predict(X_test), pos_label=0),
+        precision_score(y_test, rf_pipe.predict(X_test), pos_label=0)
+    ]
+}
+
+ablation_df = pd.DataFrame(ablation_results)
+ablation_df['Improvement'] = ablation_df['With New Features'] - ablation_df['Without New Features']
+ablation_df['% Change'] = (ablation_df['Improvement'] / ablation_df['Without New Features'] * 100).round(2)
+
+print(ablation_df.to_string(index=False, float_format='%.4f'))
+
+ablation_df.to_csv('ablation_study_new_features.csv', index=False)
+print("\nSaved: ablation_study_new_features.csv")
+
+# =============================================================================
+# SUMMARY
+# =============================================================================
+print("\n" + "="*70)
+print("ANALYSIS COMPLETE - V2")
 print("="*70)
 print("Output files generated:")
-print("  - model_comparison_results.csv")
-print("  - per_agent_performance.csv")
-print("  - shap_ambition_proof.png")
+print("  - model_comparison_results_v2.csv")
+print("  - feature_importances_v2.csv")
+print("  - per_agent_performance_v2.csv")
+print("  - shap_analysis_v2.png")
+print("  - ablation_study_new_features.csv")
