@@ -104,7 +104,7 @@ TOP 20 FEATURE IMPORTANCES
 CV Classification Report:
               precision    recall  f1-score   support
 
-Rejected (0)       0.62      0.59      0.61      7270
+Rejected (0)       0.62      0.60      0.61      7270
   Merged (1)       0.88      0.89      0.89     24014
 
     accuracy                           0.82     31284
