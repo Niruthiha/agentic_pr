@@ -1,0 +1,101 @@
+======================================================================
+LOADING AND PREPARING DATA
+======================================================================
+Categorical Features: 9
+Numerical Features:   34
+Train Size: 25027 | Test Size: 6257
+
+Verifying Test Set Ratios (Agent):
+agent
+OpenAI_Codex    0.671088
+Devin           0.149433
+Copilot         0.124341
+Cursor          0.042992
+Claude_Code     0.012146
+Name: proportion, dtype: float64
+
+======================================================================
+DEFINING MODEL PIPELINES
+======================================================================
+
+Training Logistic Regression...
+  -> AUC: 0.7776 | Precision (Rej): 0.4358
+
+Training Decision Tree...
+  -> AUC: 0.7860 | Precision (Rej): 0.4670
+
+Training Random Forest...
+  -> AUC: 0.8546 | Precision (Rej): 0.6649
+
+Training Gradient Boosting...
+  -> AUC: 0.8450 | Precision (Rej): 0.5160
+
+======================================================================
+FINAL MODEL LEADERBOARD
+======================================================================
+              Model  ROC-AUC  Precision (Rejected)  Recall (Rejected)  F1 (Rejected)  Accuracy
+      Random Forest   0.8546                0.6649             0.5462         0.5998    0.8362
+  Gradient Boosting   0.8450                0.5160             0.6899         0.5904    0.7849
+      Decision Tree   0.7860                0.4670             0.6238         0.5341    0.7555
+Logistic Regression   0.7776                0.4358             0.6785         0.5307    0.7304
+
+======================================================================
+EXTRACTING HUMAN-READABLE RULES
+======================================================================
+|--- follower_to_following_ratio <= 1.86
+|   |--- num_unique_committers <= 1.50
+|   |   |--- agent_x_has_tests <= 7.50
+|   |   |   |--- num_files <= 0.50
+|   |   |   |   |--- truncated branch of depth 2
+|   |   |   |--- num_files >  0.50
+|   |   |   |   |--- truncated branch of depth 2
+|   |   |--- agent_x_has_tests >  7.50
+|   |   |   |--- user_prior_pr_count_total <= 319.00
+|   |   |   |   |--- truncated branch of depth 2
+|   |   |   |--- user_prior_pr_count_total >  319.00
+|   |   |   |   |--- truncated branch of depth 2
+|   |--- num_unique_committers >  1.50
+|   |   |--- net_change <= 217.50
+|   |   |   |--- repo_stars <= 7015.00
+|   |   |   |   |--- truncated branch of depth 2
+|   |   |   |--- repo_stars >  7015.00
+|   |   |   |   |--- truncated branch of depth 2
+|   |   |--- net_change >  217.50
+|   |   |   |--- user_prior_pr_count_total <= 1.50
+|   |   |   |   |--- truncated branch of depth 2
+|   |   |   |--- user_prior_pr_count_total >  1.50
+|   |   |   |   |--- truncated branch of depth 2
+|--- follower_to_following_ratio >  1.86
+|   |--- repo_stars <= 518.00
+|   |   |--- follower_to_following_ratio <= 60.27
+|   |   |   |--- user_prior_merge_rate_total <= 0.84
+|   |   |   |   |--- truncated branch of depth 2
+|   |   |   |--- user_prior_merge_rate_total >  0.84
+|   |   |   |   |--- truncated branch of depth 2
+|   |   |--- follower_to_following_ratio >  60.27
+|   |   |   |--- stars_to_forks_ratio <= 4.75
+|   |   |   |   |--- truncated branch of depth 2
+|   |   |   |--- stars_to_forks_ratio >  4.75
+|   |   |   |   |--- truncated branch of depth 2
+|   |--- repo_stars >  518.00
+|   |   |--- user_prior_pr_count_total <= 109.00
+|   |   |   |--- net_change <= 13.50
+|   |   |   |   |--- truncated branch of depth 2
+|   |   |   |--- net_change >  13.50
+|   |   |   |   |--- truncated branch of depth 2
+|   |   |--- user_prior_pr_count_total >  109.00
+|   |   |   |--- body_length <= 626.50
+|   |   |   |   |--- truncated branch of depth 2
+|   |   |   |--- body_length >  626.50
+|   |   |   |   |--- truncated branch of depth 2
+
+
+======================================================================
+PER-AGENT PERFORMANCE (Random Forest)
+======================================================================
+       Agent  ROC-AUC  Accuracy  Count
+     Copilot    0.844     0.738    778
+OpenAI_Codex    0.832     0.883   4199
+      Cursor    0.811     0.818    269
+       Devin    0.803     0.724    935
+ Claude_Code    0.667     0.724     76
