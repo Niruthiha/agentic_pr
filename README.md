@@ -20,7 +20,7 @@ We aggregated data from 7 raw tables (SQL/Parquet inputs) sourced from the GitHu
 * **Final Dataset:** 31,284 Closed PRs (76.8% Merged / 23.2% Rejected).
 
 ### 2. Feature Engineering Taxonomy
-The final dataset contains 73 features derived via a 5-stage pipeline.
+The final dataset contains 80 features derived via a 5-stage pipeline.
 Feature extraction followed a sequential 5-stage pipeline: (1) extraction of static intrinsic attributes, (2) computation of point-in-time historical reputation metrics, (3) contextual normalization via Z-scores relative to repository history, (4) synthesis of interaction terms to capture agent-specific behaviors, and (5) dimensionality reduction via the removal of redundant or leakage-prone identifiers.
 
 #### A. Static and Content Features (Extracted directly)
