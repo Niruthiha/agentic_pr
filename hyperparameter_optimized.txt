@@ -1,0 +1,76 @@
+======================================================================
+Hyperparameter Optimization
+======================================================================
+Train: 25027 | Test: 6257
+Rejected in test: 1406 (22.5%)
+======================================================================
+TECHNIQUE 1: BASELINE
+======================================================================
+Rejected F1: 0.6010 | Recall: 0.5462
+======================================================================
+TECHNIQUE 2: THRESHOLD TUNING
+======================================================================
+Threshold 0.3: Rejected F1=0.4532, Recall=0.3101, Precision=0.8417
+Threshold 0.35: Rejected F1=0.4973, Recall=0.3627, Precision=0.7907
+Threshold 0.4: Rejected F1=0.5316, Recall=0.4161, Precision=0.7358
+Threshold 0.45: Rejected F1=0.5688, Recall=0.4794, Precision=0.6992
+Threshold 0.55: Rejected F1=0.6094, Recall=0.6003, Precision=0.6188
+Threshold 0.6: Rejected F1=0.6150, Recall=0.6693, Precision=0.5689
+======================================================================
+TECHNIQUE 3: CLASS WEIGHT ADJUSTMENTS
+======================================================================
+Weight {0: 2, 1: 1}: Rejected F1=0.5826, Recall=0.4943
+Weight {0: 3, 1: 1}: Rejected F1=0.5931, Recall=0.5313
+Weight {0: 4, 1: 1}: Rejected F1=0.6018, Recall=0.5697
+Weight {0: 5, 1: 1}: Rejected F1=0.6056, Recall=0.6024
+======================================================================
+TECHNIQUE 4: SMOTE OVERSAMPLING
+======================================================================
+SMOTE 0.5: Rejected F1=0.6026, Recall=0.5512
+SMOTE 0.75: Rejected F1=0.5970, Recall=0.5427
+SMOTE 1.0: Rejected F1=0.5929, Recall=0.5334
+======================================================================
+TECHNIQUE 5: RANDOMIZED SEARCH (With Correct Pipeline)
+======================================================================
+Running RandomizedSearchCV (Pipeline-aware)...
+Fitting 5 folds for each of 30 candidates, totalling 150 fits
+Best Parameters: {'clf__n_estimators': 200, 'clf__min_samples_split': 20, 'clf__min_samples_leaf': 10, 'clf__max_features': 0.5, 'clf__max_depth': None, 'clf__class_weight': {0: 4, 1: 1}}
+Best CV F1 (Rejected): 0.6092
+Test Set - Rejected F1=0.6169, Recall=0.6607
+======================================================================
+SAVING RESULTS
+======================================================================
+Saved: rf_rejection_tuning_results.csv
+Saved: rf_best_hyperparameters.csv
+Saved: rf_randomsearch_cv_results.csv
+======================================================================
+LEADERBOARD (Sorted by Rejected F1)
+======================================================================
+                    Technique  ROC-AUC  Accuracy  Precision_Merged  Recall_Merged  F1_Merged  Precision_Rejected  Recall_Rejected  F1_Rejected
+RandomSearch + Threshold=0.45   0.8530    0.8323            0.8880         0.8969     0.8924              0.6315           0.6095       0.6203
+            RandomSearch Best   0.8530    0.8156            0.8974         0.8604     0.8786              0.5785           0.6607       0.6169
+                Threshold=0.6   0.8546    0.8117            0.8990         0.8530     0.8754              0.5689           0.6693       0.6150
+               Threshold=0.55   0.8546    0.8271            0.8851         0.8928     0.8890              0.6188           0.6003       0.6094
+    Class Weight {0: 5, 1: 1}   0.8525    0.8237            0.8851         0.8879     0.8865              0.6089           0.6024       0.6056
+            SMOTE (ratio=0.5)   0.8528    0.8367            0.8761         0.9194     0.8972              0.6647           0.5512       0.6026
+    Class Weight {0: 4, 1: 1}   0.8537    0.8306            0.8790         0.9062     0.8924              0.6377           0.5697       0.6018
+     Baseline (threshold=0.5)   0.8546    0.8362            0.8750         0.9202     0.8970              0.6649           0.5462       0.5998
+           SMOTE (ratio=0.75)   0.8497    0.8354            0.8741         0.9202     0.8966              0.6635           0.5427       0.5970
+    Class Weight {0: 3, 1: 1}   0.8551    0.8362            0.8719         0.9246     0.8974              0.6712           0.5313       0.5931
+            SMOTE (ratio=1.0)   0.8492    0.8354            0.8722         0.9229     0.8968              0.6673           0.5334       0.5929
+ RandomSearch + Threshold=0.4   0.8530    0.8349            0.8717         0.9229     0.8966              0.6664           0.5313       0.5912
+    Class Weight {0: 2, 1: 1}   0.8533    0.8408            0.8653         0.9412     0.9017              0.7092           0.4943       0.5826
+               Threshold=0.45   0.8546    0.8367            0.8617         0.9402     0.8993              0.6992           0.4794       0.5688
+RandomSearch + Threshold=0.35   0.8530    0.8394            0.8600         0.9470     0.9014              0.7191           0.4680       0.5670
+                Threshold=0.4   0.8546    0.8352            0.8497         0.9567     0.9000              0.7358           0.4161       0.5316
+               Threshold=0.35   0.8546    0.8352            0.8403         0.9722     0.9015              0.7907           0.3627       0.4973
+                Threshold=0.3   0.8546    0.8319            0.8310         0.9831     0.9007              0.8417           0.3101       0.4532
+======================================================================
+TOP 5 TECHNIQUES FOR CATCHING REJECTIONS
+======================================================================
+                    Technique  F1_Rejected  Recall_Rejected  Precision_Rejected  ROC-AUC
+RandomSearch + Threshold=0.45       0.6203           0.6095              0.6315   0.8530
+            RandomSearch Best       0.6169           0.6607              0.5785   0.8530
+                Threshold=0.6       0.6150           0.6693              0.5689   0.8546
+               Threshold=0.55       0.6094           0.6003              0.6188   0.8546
+    Class Weight {0: 5, 1: 1}       0.6056           0.6024              0.6089   0.8525
