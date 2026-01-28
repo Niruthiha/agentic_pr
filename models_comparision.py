@@ -138,13 +138,18 @@ for name, pipe in models.items():
     res = {
         'Model': name,
         'ROC-AUC': roc_auc_score(y_test, y_proba),
+        'Accuracy': accuracy_score(y_test, y_pred),
+        # Merged class metrics (pos_label=1)
+        'Precision (Merged)': precision_score(y_test, y_pred, pos_label=1),
+        'Recall (Merged)': recall_score(y_test, y_pred, pos_label=1),
+        'F1 (Merged)': f1_score(y_test, y_pred, pos_label=1),
+        # Rejected class metrics (pos_label=0)
         'Precision (Rejected)': precision_score(y_test, y_pred, pos_label=0),
         'Recall (Rejected)': recall_score(y_test, y_pred, pos_label=0),
         'F1 (Rejected)': f1_score(y_test, y_pred, pos_label=0),
-        'Accuracy': accuracy_score(y_test, y_pred)
     }
     results.append(res)
-    print(f"  -> AUC: {res['ROC-AUC']:.4f} | Precision (Rej): {res['Precision (Rejected)']:.4f}")
+    print(f"  -> AUC: {res['ROC-AUC']:.4f} | F1 (Merged): {res['F1 (Merged)']:.4f} | F1 (Rejected): {res['F1 (Rejected)']:.4f}")
 
 # Display Comparison
 results_df = pd.DataFrame(results).sort_values('ROC-AUC', ascending=False)
@@ -152,6 +157,10 @@ print("\n" + "="*70)
 print("FINAL MODEL LEADERBOARD")
 print("="*70)
 print(results_df.to_string(index=False, float_format='%.4f'))
+
+# Save Model Comparison to CSV
+results_df.to_csv('model_comparison_results.csv', index=False)
+print("\nSaved: model_comparison_results.csv")
 
 # =============================================================================
 # 4. INTERPRETABLE RULES (From Decision Tree)
@@ -196,6 +205,10 @@ for agent in test_agents.unique():
 agent_df = pd.DataFrame(agent_metrics).sort_values('ROC-AUC', ascending=False)
 print(agent_df.to_string(index=False, float_format='%.3f'))
 
+# Save Per-Agent Performance to CSV
+agent_df.to_csv('per_agent_performance.csv', index=False)
+print("\nSaved: per_agent_performance.csv")
+
 # =============================================================================
 # 6. SHAP ANALYSIS (The Ambition Trade-off)
 # =============================================================================
@@ -234,4 +247,10 @@ plt.tight_layout()
 plt.savefig('shap_ambition_proof.png', dpi=300, bbox_inches='tight')
 print("Saved: shap_ambition_proof.png")
 
-print("\nANALYSIS COMPLETE. Check 'shap_ambition_proof.png' and metrics above.")
+print("\n" + "="*70)
+print("ANALYSIS COMPLETE")
+print("="*70)
+print("Output files generated:")
+print("  - model_comparison_results.csv")
+print("  - per_agent_performance.csv")
+print("  - shap_ambition_proof.png")
