@@ -1,0 +1,94 @@
+[new_venv][niruthi@Niruthiha:~/ai_code]: python /home/niruthi/ai_code/ablation_stats.py
+======================================================================
+LOADING DATA
+======================================================================
+
+Checking for inf/NaN values...
+✓ No inf/NaN values found in numeric features
+
+Data shape: (31284, 54)
+Target distribution: {1: 0.768, 0: 0.232}
+
+======================================================================
+LEAVE-ONE-GROUP-OUT WITH STATISTICAL TESTS (10-fold CV)
+======================================================================
+Running BASELINE...
+  ROC-AUC: 0.8515 ± 0.0122
+Running No agent_identity...
+  ROC-AUC: 0.8501 ± 0.0120 (Δ -0.0015) p=0.0059** [negligible]
+Running No agent_interactions...
+  ROC-AUC: 0.8515 ± 0.0123 (Δ -0.0000) p=0.9219 [negligible]
+Running No pr_size_complexity...
+  ROC-AUC: 0.8356 ± 0.0095 (Δ -0.0159) p=0.0020** [large]
+Running No pr_content_type...
+  ROC-AUC: 0.8507 ± 0.0127 (Δ -0.0008) p=0.1055 [negligible]
+Running No pr_metadata...
+  ROC-AUC: 0.8490 ± 0.0129 (Δ -0.0026) p=0.0059** [small]
+Running No user_reputation...
+  ROC-AUC: 0.8478 ± 0.0126 (Δ -0.0037) p=0.0020** [small]
+Running No user_history...
+  ROC-AUC: 0.8489 ± 0.0119 (Δ -0.0026) p=0.0020** [small]
+Running No repo_context...
+  ROC-AUC: 0.8414 ± 0.0125 (Δ -0.0101) p=0.0020** [large]
+Running No temporal...
+  ROC-AUC: 0.8508 ± 0.0130 (Δ -0.0007) p=0.2324 [negligible]
+
+======================================================================
+COMBINED GROUPS WITH STATISTICAL TESTS
+======================================================================
+Running BASELINE...
+  ROC-AUC: 0.8515 ± 0.0122
+Running No all_agent...
+  ROC-AUC: 0.8499 ± 0.0126 (Δ -0.0016) p=0.0371* [negligible]
+Running No all_user...
+  ROC-AUC: 0.8458 ± 0.0123 (Δ -0.0057) p=0.0020** [small]
+Running No all_pr_quality...
+  ROC-AUC: 0.8259 ± 0.0102 (Δ -0.0256) p=0.0020** [large]
+
+======================================================================
+SUMMARY TABLE WITH SIGNIFICANCE
+======================================================================
+
+Significance: *** p<0.001, ** p<0.01, * p<0.05, † p<0.1
+Effect size: |d|<0.2 negligible, <0.5 small, <0.8 medium, ≥0.8 large
+
+           experiment  delta_roc_auc  roc_auc_std  roc_auc_wilcox_pval sig  roc_auc_cohens_d     effect
+    No agent_identity        -0.0015       0.0120               0.0059  **           -0.1275 negligible
+No agent_interactions        -0.0000       0.0123               0.9219               -0.0005 negligible
+No pr_size_complexity        -0.0159       0.0095               0.0020  **           -1.5322      large
+   No pr_content_type        -0.0008       0.0127               0.1055               -0.0669 negligible
+       No pr_metadata        -0.0026       0.0129               0.0059  **           -0.2158      small
+   No user_reputation        -0.0037       0.0126               0.0020  **           -0.3150      small
+      No user_history        -0.0026       0.0119               0.0020  **           -0.2284      small
+      No repo_context        -0.0101       0.0125               0.0020  **           -0.8620      large
+          No temporal        -0.0007       0.0130               0.2324               -0.0587 negligible
+         No all_agent        -0.0016       0.0126               0.0371   *           -0.1373 negligible
+          No all_user        -0.0057       0.0123               0.0020  **           -0.4913      small
+    No all_pr_quality        -0.0256       0.0102               0.0020  **           -2.4002      large
+
+======================================================================
+STATISTICALLY SIGNIFICANT FINDINGS (p < 0.05)
+======================================================================
+• No agent_identity: Δ=-0.0015, p=0.0059, d=-0.13 (negligible)
+  → Removing this group hurts performance significantly
+• No pr_size_complexity: Δ=-0.0159, p=0.0020, d=-1.53 (large)
+  → Removing this group hurts performance significantly
+• No pr_metadata: Δ=-0.0026, p=0.0059, d=-0.22 (small)
+  → Removing this group hurts performance significantly
+• No user_reputation: Δ=-0.0037, p=0.0020, d=-0.32 (small)
+  → Removing this group hurts performance significantly
+• No user_history: Δ=-0.0026, p=0.0020, d=-0.23 (small)
+  → Removing this group hurts performance significantly
+• No repo_context: Δ=-0.0101, p=0.0020, d=-0.86 (large)
+  → Removing this group hurts performance significantly
+• No all_agent: Δ=-0.0016, p=0.0371, d=-0.14 (negligible)
+  → Removing this group hurts performance significantly
+• No all_user: Δ=-0.0057, p=0.0020, d=-0.49 (small)
+  → Removing this group hurts performance significantly
+• No all_pr_quality: Δ=-0.0256, p=0.0020, d=-2.40 (large)
+  → Removing this group hurts performance significantly
+
+======================================================================
+Results saved to: ablation_statistical_results.csv
+======================================================================
+[new_venv][niruthi@Niruthiha:~/ai_code]: 
