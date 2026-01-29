@@ -1,169 +1,179 @@
 ======================================================================
-LOADING DATA
+MODEL × STRATEGY FULL COMPARISON
 ======================================================================
 Train: 25027 | Test: 6257
-Class Balance - Merged: 76.6% | Rejected: 23.4%
 
 ======================================================================
-PART A: RESAMPLING TECHNIQUES
+TRAINING MODELS
 ======================================================================
-
-Testing SMOTE...
-  Resampled: 38326 samples (was 25027)
-  -> F1_Rejected: 0.6028 | Recall: 0.5548
-  -> XGB F1_Rejected: 0.6052 | Recall: 0.5256
-
-Testing ADASYN...
-  Resampled: 38424 samples (was 25027)
-  -> F1_Rejected: 0.6096 | Recall: 0.5647
-  -> XGB F1_Rejected: 0.6045 | Recall: 0.5206
-
-Testing BorderlineSMOTE...
-  Resampled: 38326 samples (was 25027)
-  -> F1_Rejected: 0.6086 | Recall: 0.5690
-  -> XGB F1_Rejected: 0.6004 | Recall: 0.5199
-
-Testing SMOTE_Tomek...
-  Resampled: 37146 samples (was 25027)
-  -> F1_Rejected: 0.6038 | Recall: 0.5597
-  -> XGB F1_Rejected: 0.6079 | Recall: 0.5270
-
-Testing SMOTE_ENN...
-  Resampled: 25426 samples (was 25027)
-  -> F1_Rejected: 0.5786 | Recall: 0.6949
-  -> XGB F1_Rejected: 0.5944 | Recall: 0.6686
+Training Random Forest...
+Training XGBoost (Fixed)...
+Training XGBoost (Original - high weight)...
+✅ All models trained.
 
 ======================================================================
-PART B: RANDOM FOREST OPTIMIZATION (Optimizing for F1_Rejected)
+GENERATING OOF PREDICTIONS
 ======================================================================
-Best trial: 24. Best value: 0.617082: 100%|██████| 50/50 [44:11<00:00, 53.04s/it]
-
-✅ Best RF CV F1_Rejected: 0.6171
-Best Params: {'n_estimators': 300, 'max_depth': 45, 'min_samples_split': 10, 'min_samples_leaf': 12, 'max_features': 0.5, 'class_weight': 'balanced_subsample'}
+OOF predictions generated.
 
 ======================================================================
-PART C: XGBOOST OPTIMIZATION (Optimizing for F1_Rejected)
+CALCULATING STRATEGY PARAMETERS
 ======================================================================
-Best trial: 22. Best value: 0.626216:  66%|███▉  | 33/50 [03:19<01:47,  6.30s/it]Best trial: 22. Best value: 0.626216: 100%|██████| 50/50 [05:18<00:00,  6.36s/it]
-
-✅ Best XGB CV F1_Rejected: 0.6262
-Best Params: {'n_estimators': 400, 'learning_rate': 0.030166364389623494, 'max_depth': 11, 'min_child_weight': 7, 'subsample': 0.7010144517605484, 'colsample_bytree': 0.9226669535175721, 'gamma': 1.064647837182466, 'reg_alpha': 1.5998011470549778, 'reg_lambda': 0.4567812958539841, 'scale_pos_weight': 0.4097932321521165}
-
-======================================================================
-PART D: SMOTE + TUNED MODELS
-======================================================================
-RF Tuned + SMOTE: F1_Rejected=0.5970
-XGB Tuned + SMOTE: F1_Rejected=0.6036
+  Claude_Code: rate=0.681, tier=MEDIUM_RISK, thresh_60=0.52
+  Copilot: rate=0.548, tier=HIGH_RISK, thresh_60=0.33
+  Cursor: rate=0.739, tier=MEDIUM_RISK, thresh_60=0.60
+  Devin: rate=0.551, tier=HIGH_RISK, thresh_60=0.36
+  OpenAI_Codex: rate=0.857, tier=LOW_RISK, thresh_60=0.67
 
 ======================================================================
-PART E: ENSEMBLE STRATEGIES
+EVALUATING ALL MODEL × STRATEGY COMBINATIONS
 ======================================================================
-Ensemble results added.
 
 ======================================================================
-PART F: THRESHOLD TUNING
+TOP 10 COMBINATIONS BY F1_REJECTED
 ======================================================================
-Best single technique so far: Ensemble: 50% RF + 50% XGB with F1_Rejected=0.6271
-
-Threshold Tuning Results (RF Tuned):
- Threshold  Accuracy  Precision_Merged  Recall_Merged  F1_Merged  Precision_Rejected  Recall_Rejected  F1_Rejected    MCC
-    0.3000    0.8435            0.8496         0.9699     0.9058              0.7969           0.4075       0.5393 0.4940
-    0.3500    0.8443            0.8605         0.9538     0.9048              0.7455           0.4666       0.5739 0.5047
-    0.4000    0.8423            0.8740         0.9307     0.9015              0.6920           0.5370       0.6047 0.5145
-    0.4500    0.8344            0.8853         0.9035     0.8943              0.6417           0.5960       0.6180 0.5131
-    0.5000    0.8213            0.8952         0.8716     0.8832              0.5939           0.6479       0.6197 0.5041
-    0.5500    0.7981            0.9064         0.8248     0.8637              0.5388           0.7063       0.6113 0.4862
-    0.6000    0.7678            0.9193         0.7679     0.8368              0.4893           0.7674       0.5976 0.4677
-    0.6500    0.7248            0.9283         0.6990     0.7975              0.4393           0.8137       0.5706 0.4341
-    0.7000    0.6736            0.9404         0.6182     0.7460              0.3963           0.8649       0.5436 0.4033
-
-✅ Best Threshold for F1_Rejected: 0.5
+              Model         Strategy  F1_Rejected  Recall_Rejected  Precision_Rejected  F1_Merged  ROC-AUC
+     Ensemble 50/50 Aggressive (0.6)       0.6354           0.6074              0.6661     0.9003   0.8629
+     Ensemble 70/30 Aggressive (0.6)       0.6325           0.6486              0.6171     0.8899   0.8626
+            RF Only Aggressive (0.6)       0.6252           0.7119              0.5573     0.8711   0.8596
+     Ensemble 70/30       Risk Tiers       0.6243           0.5967              0.6544     0.8972   0.8626
+            RF Only   Baseline (0.5)       0.6221           0.5896              0.6585     0.8978   0.8596
+     Ensemble 50/50       Risk Tiers       0.6173           0.5548              0.6958     0.9032   0.8629
+     Ensemble 70/30   Baseline (0.5)       0.6144           0.5349              0.7217     0.9062   0.8626
+            RF Only       Risk Tiers       0.6115           0.6721              0.5608     0.8725   0.8596
+XGB Fixed (spw=1.5) Aggressive (0.6)       0.6081           0.5270              0.7187     0.9052   0.8572
+     Ensemble 50/50   Baseline (0.5)       0.6035           0.5050              0.7497     0.9082   0.8629
 
 ======================================================================
-FINAL LEADERBOARD (Sorted by F1_Rejected)
+TOP 10 COMBINATIONS BY RECALL_REJECTED
 ======================================================================
-                    Technique  F1_Rejected  Recall_Rejected  Precision_Rejected  F1_Merged  ROC-AUC    MCC
-   Ensemble: 50% RF + 50% XGB       0.6271           0.6430              0.6121     0.8884   0.8584 0.5159
-  XGB Tuned (F1_Rejected opt)       0.6247           0.6351              0.6146     0.8889   0.8555 0.5137
-Ensemble: RF + XGB + RF_SMOTE       0.6238           0.6145              0.6334     0.8931   0.8575 0.5170
-   Ensemble: 70% RF + 30% XGB       0.6237           0.6437              0.6049     0.8864   0.8581 0.5107
-   RF Tuned (F1_Rejected opt)       0.6197           0.6479              0.5939     0.8832   0.8555 0.5041
-     RF Tuned @ Threshold=0.5       0.6197           0.6479              0.5939     0.8832   0.8555 0.5041
-      Ensemble: RF + RF_SMOTE       0.6159           0.6010              0.6315     0.8921   0.8540 0.5083
-                  RF + ADASYN       0.6096           0.5647              0.6622     0.8974   0.8488 0.5103
-         RF + BorderlineSMOTE       0.6086           0.5690              0.6541     0.8959   0.8494 0.5071
-            XGB + SMOTE_Tomek       0.6079           0.5270              0.7180     0.9051   0.8510 0.5253
-                  XGB + SMOTE       0.6052           0.5256              0.7133     0.9043   0.8545 0.5215
-                 XGB + ADASYN       0.6045           0.5206              0.7205     0.9051   0.8496 0.5230
-             RF + SMOTE_Tomek       0.6038           0.5597              0.6553     0.8957   0.8506 0.5028
-            XGB Tuned + SMOTE       0.6036           0.5171              0.7248     0.9055   0.8562 0.5235
-                   RF + SMOTE       0.6028           0.5548              0.6599     0.8964   0.8516 0.5032
+         Model               Strategy  Recall_Rejected  Precision_Rejected  F1_Rejected  F1_Merged  Accuracy
+       RF Only       Aggressive (0.6)           0.7119              0.5573       0.6252     0.8711    0.8082
+       RF Only             Risk Tiers           0.6721              0.5608       0.6115     0.8725    0.8081
+Ensemble 70/30       Aggressive (0.6)           0.6486              0.6171       0.6325     0.8899    0.8306
+       RF Only Per-Agent (60% Recall)           0.6088              0.5501       0.5780     0.8691    0.8002
+Ensemble 50/50       Aggressive (0.6)           0.6074              0.6661       0.6354     0.9003    0.8434
+Ensemble 70/30             Risk Tiers           0.5967              0.6544       0.6243     0.8972    0.8386
+       RF Only         Baseline (0.5)           0.5896              0.6585       0.6221     0.8978    0.8391
+       RF Only Per-Agent (55% Recall)           0.5576              0.5735       0.5655     0.8763    0.8074
+Ensemble 50/50             Risk Tiers           0.5548              0.6958       0.6173     0.9032    0.8455
+Ensemble 70/30 Per-Agent (60% Recall)           0.5356              0.6414       0.5837     0.8919    0.8284
+
+======================================================================
+BEST BALANCED (Harmonic Mean of F1_Merged & F1_Rejected)
+======================================================================
+              Model         Strategy  Balanced_F1  F1_Merged  F1_Rejected  ROC-AUC
+     Ensemble 50/50 Aggressive (0.6)       0.7450     0.9003       0.6354   0.8629
+     Ensemble 70/30 Aggressive (0.6)       0.7394     0.8899       0.6325   0.8626
+     Ensemble 70/30       Risk Tiers       0.7362     0.8972       0.6243   0.8626
+            RF Only   Baseline (0.5)       0.7350     0.8978       0.6221   0.8596
+     Ensemble 50/50       Risk Tiers       0.7334     0.9032       0.6173   0.8629
+     Ensemble 70/30   Baseline (0.5)       0.7323     0.9062       0.6144   0.8626
+            RF Only Aggressive (0.6)       0.7280     0.8711       0.6252   0.8596
+XGB Fixed (spw=1.5) Aggressive (0.6)       0.7275     0.9052       0.6081   0.8572
+     Ensemble 50/50   Baseline (0.5)       0.7251     0.9082       0.6035   0.8629
+            RF Only       Risk Tiers       0.7190     0.8725       0.6115   0.8596
+
+======================================================================
+F1_REJECTED: MODEL × STRATEGY MATRIX
+======================================================================
+Strategy                Aggressive (0.6)  Baseline (0.5)  Conservative (0.4)  Per-Agent (55% Recall)  Per-Agent (60% Recall)  Risk Tiers
+Model                                                                                                                                   
+Ensemble 50/50                    0.6354          0.6035              0.5370                  0.5636                  0.5738      0.6173
+Ensemble 70/30                    0.6325          0.6144              0.5546                  0.5670                  0.5837      0.6243
+RF Only                           0.6252          0.6221              0.5654                  0.5655                  0.5780      0.6115
+XGB Fixed (spw=1.5)               0.6081          0.5718              0.5238                  0.5409                  0.5593      0.5911
+XGB Original (spw=8.8)            0.4997          0.4461              0.3976                  0.4024                  0.4172      0.4476
+
+======================================================================
+RECALL_REJECTED: MODEL × STRATEGY MATRIX
+======================================================================
+Strategy                Aggressive (0.6)  Baseline (0.5)  Conservative (0.4)  Per-Agent (55% Recall)  Per-Agent (60% Recall)  Risk Tiers
+Model                                                                                                                                   
+Ensemble 50/50                    0.6074          0.5050              0.3997                  0.4651                  0.4979      0.5548
+Ensemble 70/30                    0.6486          0.5349              0.4211                  0.4936                  0.5356      0.5967
+RF Only                           0.7119          0.5896              0.4488                  0.5576                  0.6088      0.6721
+XGB Fixed (spw=1.5)               0.5270          0.4502              0.3834                  0.4182                  0.4445      0.4858
+XGB Original (spw=8.8)            0.3521          0.2987              0.2539                  0.2603                  0.2731      0.3009
+
+======================================================================
+F1_MERGED: MODEL × STRATEGY MATRIX
+======================================================================
+Strategy                Aggressive (0.6)  Baseline (0.5)  Conservative (0.4)  Per-Agent (55% Recall)  Per-Agent (60% Recall)  Risk Tiers
+Model                                                                                                                                   
+Ensemble 50/50                    0.9003          0.9082              0.9070                  0.9006                  0.8968      0.9032
+Ensemble 70/30                    0.8899          0.9062              0.9084                  0.8947                  0.8919      0.8972
+RF Only                           0.8711          0.8978              0.9057                  0.8763                  0.8691      0.8725
+XGB Fixed (spw=1.5)               0.9052          0.9080              0.9063                  0.9035                  0.9042      0.9074
+XGB Original (spw=8.8)            0.9059          0.9019              0.8990                  0.8984                  0.8995      0.9017
+
+======================================================================
+PER-AGENT BREAKDOWN: TOP 3 COMBINATIONS
+======================================================================
+
+>>> Ensemble 50/50 + Aggressive (0.6)
+------------------------------------------------------------
+Agent           F1_Merged    F1_Rejected  Recall_Rej  
+Claude_Code     0.826        0.323        0.417       
+Copilot         0.767        0.754        0.828       
+Cursor          0.881        0.541        0.492       
+Devin           0.762        0.736        0.815       
+OpenAI_Codex    0.935        0.459        0.352       
+
+>>> Ensemble 70/30 + Aggressive (0.6)
+------------------------------------------------------------
+Agent           F1_Merged    F1_Rejected  Recall_Rej  
+Claude_Code     0.810        0.389        0.583       
+Copilot         0.724        0.743        0.872       
+Cursor          0.874        0.547        0.525       
+Devin           0.714        0.723        0.855       
+OpenAI_Codex    0.931        0.472        0.391       
+
+>>> RF Only + Aggressive (0.6)
+------------------------------------------------------------
+Agent           F1_Merged    F1_Rejected  Recall_Rej  
+Claude_Code     0.764        0.381        0.667       
+Copilot         0.655        0.719        0.895       
+Cursor          0.861        0.615        0.721       
+Devin           0.637        0.702        0.900       
+OpenAI_Codex    0.921        0.495        0.476       
 
 ======================================================================
 SAVING RESULTS
 ======================================================================
-Saved: comprehensive_minority_optimization.csv
-Saved: threshold_tuning_detailed.csv
-Saved: best_hyperparameters_f1_optimized.csv
+Saved: model_strategy_full_comparison.csv
+Saved: pivot_f1_rejected.csv
+Saved: pivot_recall_rejected.csv
+Saved: pivot_f1_merged.csv
 
 ======================================================================
-OPTIMIZATION COMPLETE - TOP 5 TECHNIQUES
+FINAL RECOMMENDATION
 ======================================================================
 
-Ensemble: 50% RF + 50% XGB
-  F1_Rejected:  0.6271
-  Recall:       0.6430
-  Precision:    0.6121
-  ROC-AUC:      0.8584
-  MCC:          0.5159
-
-
-XGB Tuned (F1_Rejected opt)
-  F1_Rejected:  0.6247
-  Recall:       0.6351
-  Precision:    0.6146
-  ROC-AUC:      0.8555
-  MCC:          0.5137
-
-
-Ensemble: RF + XGB + RF_SMOTE
-  F1_Rejected:  0.6238
-  Recall:       0.6145
-  Precision:    0.6334
-  ROC-AUC:      0.8575
-  MCC:          0.5170
-
-
-Ensemble: 70% RF + 30% XGB
-  F1_Rejected:  0.6237
-  Recall:       0.6437
-  Precision:    0.6049
-  ROC-AUC:      0.8581
-  MCC:          0.5107
-
-
-RF Tuned (F1_Rejected opt)
-  F1_Rejected:  0.6197
-  Recall:       0.6479
-  Precision:    0.5939
-  ROC-AUC:      0.8555
-  MCC:          0.5041
-
-
-======================================================================
-KEY INSIGHTS
-======================================================================
-
-1. Best overall F1_Rejected: Ensemble: 50% RF + 50% XGB = 0.6271
-2. Best Recall_Rejected: RF + SMOTE_ENN = 0.6949
-3. Best ROC-AUC: Ensemble: 50% RF + 50% XGB = 0.8584
-
-RECOMMENDATION:
-- For catching most rejections: Use highest Recall technique + lower threshold
-- For balanced performance: Use highest F1_Rejected technique
-- For overall discrimination: Use highest ROC-AUC technique
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         WINNING COMBINATIONS                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  BEST BALANCED (F1 both classes):                                           │
+│    Model:    Ensemble 50/50                                                              │
+│    Strategy: Aggressive (0.6)                                                         │
+│    Balanced_F1: 0.7450                           │
+│    F1_Merged: 0.9003 | F1_Rejected: 0.6354              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  BEST FOR CATCHING REJECTIONS (F1_Rejected):                                │
+│    Model:    Ensemble 50/50                                                            │
+│    Strategy: Aggressive (0.6)                                                       │
+│    F1_Rejected: 0.6354                         │
+│    Recall_Rejected: 0.6074                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  MAXIMUM REJECTION RECALL:                                                  │
+│    Model:    RF Only                                                                      │
+│    Strategy: Aggressive (0.6)                                                          │
+│    Recall_Rejected: 0.7119                    │
+│    (Precision trade-off: 0.5573)           │
+└─────────────────────────────────────────────────────────────────────────────┘
 
 Output files:
-- comprehensive_minority_optimization.csv (all results)
-- threshold_tuning_detailed.csv
-- best_hyperparameters_f1_optimized.csv
+  - model_strategy_full_comparison.csv (all 30 combinations)
+  - pivot_f1_rejected.csv
+  - pivot_recall_rejected.csv  
+  - pivot_f1_merged.csv
