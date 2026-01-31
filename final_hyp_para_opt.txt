@@ -96,4 +96,43 @@ RandomForestClassifier(
 ensemble_proba = 0.212 * rf_proba + 0.788 * xgb_proba
 
 ✓ Saved: optimization_results.csv
+
+
+
+
+============================================================
+5-FOLD CROSS VALIDATION
+============================================================
+
+--- CV Results (threshold=0.5) ---
+F1_Rejected:        0.6157
+Recall_Rejected:    0.5650
+Precision_Rejected: 0.6765
+F1_Merged:          0.8948
+
+--- Per-Fold F1_Rejected ---
+  Fold 1: 0.6252
+  Fold 2: 0.6168
+  Fold 3: 0.6131
+  Fold 4: 0.6134
+  Fold 5: 0.6101
+  Mean:   0.6157 ± 0.0052
+
+============================================================
+TRAINING FINAL MODEL
+============================================================
+
+--- Test Set Results ---
+F1_Rejected:        0.6262
+Recall_Rejected:    0.5832
+Precision_Rejected: 0.6760
+F1_Merged:          0.9011
+
+✓ Saved: xgb_best.joblib
+✓ Saved: preprocessor.joblib
+
+--- Features (59) ---
+Categorical: ['agent', 'task_type', 'repo_language', 'repo_license', 'agent_x_size_zscore', 'agent_x_has_tests', 'agent_x_has_issue', 'tests_x_size_zscore', 'user_trust_x_size']
+Numeric: ['num_files', 'num_unique_extensions', 'total_changes', 'net_change', 'add_del_ratio', 'avg_changes_per_file', 'num_commits', 'num_unique_authors', 'num_unique_committers', 'body_length', 'title_length', 'task_confidence', 'num_linked_issues', 'day_of_week', 'repo_stars', 'stars_to_forks_ratio', 'user_followers', 'user_following', 'follower_to_following_ratio', 'account_age_days', 'user_prior_pr_count_total', 'user_prior_merge_rate_total', 'user_prior_merge_rate_in_repo', 'days_since_last_pr', 'repo_prior_pr_count', 'repo_prior_merge_rate', 'repo_avg_pr_size', 'repo_std_pr_size', 'repo_avg_file_count', 'agent_prior_merge_rate_global', 'agent_prior_merge_rate_in_repo', 'pr_size_zscore', 'pr_file_count_zscore', 'pr_changes_per_file_zscore', 'agent_historical_ci_pass_rate', 'user_historical_ci_pass_rate', 'repo_avg_ci_fail_rate', 'agent_avg_review_rounds', 'repo_avg_time_to_merge']
+Boolean: ['is_test', 'is_doc', 'is_config', 'has_body', 'has_linked_issue', 'is_weekend', 'is_holiday_season', 'is_unknown_user', 'is_first_pr_total', 'is_first_pr_in_repo', 'is_new_repo']
 [new_venv][niruthi@Niruthiha:~/ai_code]: 
