@@ -1,34 +1,31 @@
 """
-STRATEGIES WITH FIXED 0.5 THRESHOLD
-====================================
-Since threshold must stay at 0.5, we modify what happens BEFORE the threshold:
-1. Probability Calibration (Platt/Isotonic) - makes 0.5 meaningful
-2. Class Weight Tuning - adjust model's internal bias
-3. Ensemble Weight Optimization - find best model blend
-4. Cost-Sensitive Learning - penalize FN vs FP differently
+FULL HYPERPARAMETER OPTIMIZATION
+=================================
+Models: XGBoost, Random Forest, Optimized Ensemble
+Objective: Maximize F1_Rejected @ threshold=0.5
 """
 
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split, cross_val_predict
+import optuna
+from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_predict
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.calibration import CalibratedClassifierCV
 from xgboost import XGBClassifier
-from sklearn.metrics import (f1_score, roc_auc_score, precision_score, 
-                             recall_score, accuracy_score, brier_score_loss)
-from scipy.optimize import minimize
+from sklearn.metrics import f1_score, recall_score, precision_score
+import joblib
 import warnings
 warnings.filterwarnings('ignore')
+optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-THRESHOLD = 0.5  # FIXED as per professor's requirement
+THRESHOLD = 0.5
 
 # =============================================================================
-# 1. LOAD DATA (same as before)
+# 1. LOAD DATA
 # =============================================================================
 print("="*70)
-print("STRATEGIES WITH FIXED 0.5 THRESHOLD")
+print("FULL HYPERPARAMETER OPTIMIZATION")
 print("="*70)
 
 df = pd.read_parquet('/home/niruthi/ai_code/data/engineered_features_v2.parquet')
@@ -45,7 +42,6 @@ y = df_clean['is_merged']
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=df_clean['agent']
 )
-agents_test = X_test['agent'].values
 
 # Preprocessor
 cat_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
@@ -62,266 +58,246 @@ X_train_prep = preprocessor.fit_transform(X_train)
 X_test_prep = preprocessor.transform(X_test)
 
 print(f"Train: {len(X_train)} | Test: {len(X_test)}")
-print(f"Merge rate: {y_train.mean():.3f}")
+
+cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
 
 # =============================================================================
-# 2. EVALUATION FUNCTION
+# 2. OPTIMIZE XGBOOST
 # =============================================================================
-def evaluate(y_true, y_proba, name=""):
-    """Evaluate with fixed 0.5 threshold"""
+print("\n" + "="*70)
+print("OPTIMIZING XGBOOST (50 trials)")
+print("="*70)
+
+def xgb_objective(trial):
+    params = {
+        'n_estimators': trial.suggest_int('n_estimators', 200, 800, step=100),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.15, log=True),
+        'max_depth': trial.suggest_int('max_depth', 4, 12),
+        'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
+        'subsample': trial.suggest_float('subsample', 0.6, 0.95),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.5, 0.9),
+        'gamma': trial.suggest_float('gamma', 0.0, 2.0),
+        'reg_alpha': trial.suggest_float('reg_alpha', 0.0, 2.0),
+        'reg_lambda': trial.suggest_float('reg_lambda', 0.5, 3.0),
+        'scale_pos_weight': trial.suggest_float('scale_pos_weight', 0.3, 0.8),
+        'random_state': 42, 'n_jobs': -1, 'eval_metric': 'logloss'
+    }
+    
+    model = XGBClassifier(**params)
+    oof_proba = cross_val_predict(model, X_train_prep, y_train, cv=cv, 
+                                   method='predict_proba', n_jobs=-1)[:, 1]
+    oof_pred = (oof_proba >= THRESHOLD).astype(int)
+    return f1_score(y_train, oof_pred, pos_label=0)
+
+xgb_study = optuna.create_study(direction='maximize', 
+                                 sampler=optuna.samplers.TPESampler(seed=42))
+xgb_study.optimize(xgb_objective, n_trials=50, show_progress_bar=True)
+
+print(f"✓ Best XGB F1_Rejected (CV): {xgb_study.best_value:.4f}")
+print(f"  Best scale_pos_weight: {xgb_study.best_params['scale_pos_weight']:.3f}")
+
+# =============================================================================
+# 3. OPTIMIZE RANDOM FOREST
+# =============================================================================
+print("\n" + "="*70)
+print("OPTIMIZING RANDOM FOREST (50 trials)")
+print("="*70)
+
+def rf_objective(trial):
+    # Class weight for rejected class
+    reject_weight = trial.suggest_float('reject_weight', 1.5, 4.0)
+    
+    params = {
+        'n_estimators': trial.suggest_int('n_estimators', 200, 600, step=100),
+        'max_depth': trial.suggest_int('max_depth', 10, 30),
+        'min_samples_split': trial.suggest_int('min_samples_split', 2, 10),
+        'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 8),
+        'max_features': trial.suggest_categorical('max_features', ['sqrt', 'log2', 0.3, 0.5]),
+        'class_weight': {0: reject_weight, 1: 1.0},
+        'random_state': 42, 'n_jobs': -1
+    }
+    
+    model = RandomForestClassifier(**params)
+    oof_proba = cross_val_predict(model, X_train_prep, y_train, cv=cv, 
+                                   method='predict_proba', n_jobs=-1)[:, 1]
+    oof_pred = (oof_proba >= THRESHOLD).astype(int)
+    return f1_score(y_train, oof_pred, pos_label=0)
+
+rf_study = optuna.create_study(direction='maximize', 
+                                sampler=optuna.samplers.TPESampler(seed=42))
+rf_study.optimize(rf_objective, n_trials=50, show_progress_bar=True)
+
+print(f"✓ Best RF F1_Rejected (CV): {rf_study.best_value:.4f}")
+print(f"  Best reject_weight: {rf_study.best_params['reject_weight']:.3f}")
+
+# =============================================================================
+# 4. TRAIN OPTIMIZED MODELS
+# =============================================================================
+print("\n" + "="*70)
+print("TRAINING OPTIMIZED MODELS")
+print("="*70)
+
+# XGBoost
+xgb_params = xgb_study.best_params.copy()
+xgb_params.update({'random_state': 42, 'n_jobs': -1, 'eval_metric': 'logloss'})
+xgb_opt = XGBClassifier(**xgb_params)
+xgb_opt.fit(X_train_prep, y_train)
+xgb_proba = xgb_opt.predict_proba(X_test_prep)[:, 1]
+print("✓ XGBoost trained")
+
+# Random Forest
+rf_params = rf_study.best_params.copy()
+reject_weight = rf_params.pop('reject_weight')
+rf_params['class_weight'] = {0: reject_weight, 1: 1.0}
+rf_params.update({'random_state': 42, 'n_jobs': -1})
+rf_opt = RandomForestClassifier(**rf_params)
+rf_opt.fit(X_train_prep, y_train)
+rf_proba = rf_opt.predict_proba(X_test_prep)[:, 1]
+print("✓ Random Forest trained")
+
+# =============================================================================
+# 5. OPTIMIZE ENSEMBLE WEIGHTS
+# =============================================================================
+print("\n" + "="*70)
+print("OPTIMIZING ENSEMBLE WEIGHTS (30 trials)")
+print("="*70)
+
+# Get OOF predictions for ensemble optimization
+xgb_oof = cross_val_predict(xgb_opt, X_train_prep, y_train, cv=cv, 
+                             method='predict_proba', n_jobs=-1)[:, 1]
+rf_oof = cross_val_predict(rf_opt, X_train_prep, y_train, cv=cv, 
+                            method='predict_proba', n_jobs=-1)[:, 1]
+
+def ensemble_objective(trial):
+    rf_weight = trial.suggest_float('rf_weight', 0.2, 0.8)
+    xgb_weight = 1 - rf_weight
+    
+    ens_proba = rf_weight * rf_oof + xgb_weight * xgb_oof
+    ens_pred = (ens_proba >= THRESHOLD).astype(int)
+    return f1_score(y_train, ens_pred, pos_label=0)
+
+ens_study = optuna.create_study(direction='maximize',
+                                 sampler=optuna.samplers.TPESampler(seed=42))
+ens_study.optimize(ensemble_objective, n_trials=30, show_progress_bar=True)
+
+best_rf_w = ens_study.best_params['rf_weight']
+best_xgb_w = 1 - best_rf_w
+print(f"✓ Optimal weights: RF={best_rf_w:.3f}, XGB={best_xgb_w:.3f}")
+
+# =============================================================================
+# 6. FINAL EVALUATION
+# =============================================================================
+print("\n" + "="*70)
+print("FINAL TEST SET EVALUATION (threshold=0.5)")
+print("="*70)
+
+def evaluate(name, y_proba):
     y_pred = (y_proba >= THRESHOLD).astype(int)
     return {
-        'Strategy': name,
-        'Threshold': THRESHOLD,
-        'ROC-AUC': roc_auc_score(y_true, y_proba),
-        'Brier Score': brier_score_loss(y_true, y_proba),  # calibration quality
-        'Accuracy': accuracy_score(y_true, y_pred),
-        'Precision_Merged': precision_score(y_true, y_pred, pos_label=1),
-        'Recall_Merged': recall_score(y_true, y_pred, pos_label=1),
-        'F1_Merged': f1_score(y_true, y_pred, pos_label=1),
-        'Precision_Rejected': precision_score(y_true, y_pred, pos_label=0),
-        'Recall_Rejected': recall_score(y_true, y_pred, pos_label=0),
-        'F1_Rejected': f1_score(y_true, y_pred, pos_label=0),
+        'Model': name,
+        'F1_Rejected': f1_score(y_test, y_pred, pos_label=0),
+        'Recall_Rejected': recall_score(y_test, y_pred, pos_label=0),
+        'Precision_Rejected': precision_score(y_test, y_pred, pos_label=0),
+        'F1_Merged': f1_score(y_test, y_pred, pos_label=1),
     }
 
-results = []
+# Ensemble predictions
+ens_proba = best_rf_w * rf_proba + best_xgb_w * xgb_proba
 
-# =============================================================================
-# 3. STRATEGY 1: BASELINE MODELS (no modification)
-# =============================================================================
-print("\n" + "="*70)
-print("STRATEGY 1: BASELINE MODELS")
-print("="*70)
+results = [
+    evaluate('XGBoost (optimized)', xgb_proba),
+    evaluate('Random Forest (optimized)', rf_proba),
+    evaluate(f'Ensemble (RF={best_rf_w:.2f}/XGB={best_xgb_w:.2f})', ens_proba),
+]
 
-# RF with balanced weights
-rf_balanced = RandomForestClassifier(
-    n_estimators=400, max_depth=20, min_samples_split=3, min_samples_leaf=4,
-    max_features='sqrt', class_weight='balanced', random_state=42, n_jobs=-1
-)
-rf_balanced.fit(X_train_prep, y_train)
-rf_proba = rf_balanced.predict_proba(X_test_prep)[:, 1]
-results.append(evaluate(y_test, rf_proba, "RF (balanced weights)"))
-print("✓ RF baseline done")
+# Add unoptimized baselines for comparison
+xgb_baseline = XGBClassifier(n_estimators=500, learning_rate=0.05, max_depth=8,
+                              scale_pos_weight=0.5, random_state=42, n_jobs=-1)
+xgb_baseline.fit(X_train_prep, y_train)
+results.append(evaluate('XGBoost (unoptimized)', xgb_baseline.predict_proba(X_test_prep)[:, 1]))
 
-# XGB low scale_pos_weight
-xgb_low = XGBClassifier(
-    n_estimators=500, learning_rate=0.05, max_depth=8, min_child_weight=5,
-    scale_pos_weight=1.5, random_state=42, n_jobs=-1
-)
-xgb_low.fit(X_train_prep, y_train)
-xgb_low_proba = xgb_low.predict_proba(X_test_prep)[:, 1]
-results.append(evaluate(y_test, xgb_low_proba, "XGB (spw=1.5)"))
-print("✓ XGB baseline done")
-
-# =============================================================================
-# 4. STRATEGY 2: PROBABILITY CALIBRATION
-# =============================================================================
-print("\n" + "="*70)
-print("STRATEGY 2: PROBABILITY CALIBRATION")
-print("="*70)
-print("Makes probabilities meaningful so 0.5 = true 50% chance")
-
-# Platt Scaling (sigmoid)
-rf_platt = CalibratedClassifierCV(rf_balanced, method='sigmoid', cv=5)
-rf_platt.fit(X_train_prep, y_train)
-rf_platt_proba = rf_platt.predict_proba(X_test_prep)[:, 1]
-results.append(evaluate(y_test, rf_platt_proba, "RF + Platt Scaling"))
-print("✓ RF + Platt done")
-
-# Isotonic Regression
-rf_isotonic = CalibratedClassifierCV(rf_balanced, method='isotonic', cv=5)
-rf_isotonic.fit(X_train_prep, y_train)
-rf_isotonic_proba = rf_isotonic.predict_proba(X_test_prep)[:, 1]
-results.append(evaluate(y_test, rf_isotonic_proba, "RF + Isotonic"))
-print("✓ RF + Isotonic done")
-
-# XGB + Calibration
-xgb_platt = CalibratedClassifierCV(xgb_low, method='sigmoid', cv=5)
-xgb_platt.fit(X_train_prep, y_train)
-xgb_platt_proba = xgb_platt.predict_proba(X_test_prep)[:, 1]
-results.append(evaluate(y_test, xgb_platt_proba, "XGB + Platt Scaling"))
-print("✓ XGB + Platt done")
-
-# =============================================================================
-# 5. STRATEGY 3: CLASS WEIGHT TUNING
-# =============================================================================
-print("\n" + "="*70)
-print("STRATEGY 3: CLASS WEIGHT TUNING")
-print("="*70)
-print("Adjust model bias so 0.5 threshold catches more rejections")
-
-# Higher weight on rejected class (0)
-for reject_weight in [1.5, 2.0, 2.5, 3.0]:
-    rf_weighted = RandomForestClassifier(
-        n_estimators=400, max_depth=20, min_samples_split=3, min_samples_leaf=4,
-        max_features='sqrt', 
-        class_weight={0: reject_weight, 1: 1.0},  # Weight rejected class higher
-        random_state=42, n_jobs=-1
-    )
-    rf_weighted.fit(X_train_prep, y_train)
-    proba = rf_weighted.predict_proba(X_test_prep)[:, 1]
-    results.append(evaluate(y_test, proba, f"RF (reject_weight={reject_weight})"))
-    print(f"✓ RF reject_weight={reject_weight} done")
-
-# XGB with different scale_pos_weight (lower = more conservative on merges)
-for spw in [0.5, 0.8, 1.0, 1.2]:
-    xgb_tuned = XGBClassifier(
-        n_estimators=500, learning_rate=0.05, max_depth=8, min_child_weight=5,
-        scale_pos_weight=spw, random_state=42, n_jobs=-1
-    )
-    xgb_tuned.fit(X_train_prep, y_train)
-    proba = xgb_tuned.predict_proba(X_test_prep)[:, 1]
-    results.append(evaluate(y_test, proba, f"XGB (spw={spw})"))
-    print(f"✓ XGB spw={spw} done")
-
-# =============================================================================
-# 6. STRATEGY 4: OPTIMIZED ENSEMBLE WEIGHTS
-# =============================================================================
-print("\n" + "="*70)
-print("STRATEGY 4: OPTIMIZED ENSEMBLE WEIGHTS")
-print("="*70)
-
-# Get calibrated probabilities for ensembling
-rf_cal_proba = rf_platt_proba
-xgb_cal_proba = xgb_platt_proba
-
-def ensemble_f1_rejected(weights, probas, y_true):
-    """Objective: maximize F1_Rejected with 0.5 threshold"""
-    w1, w2 = weights
-    w1, w2 = w1 / (w1 + w2), w2 / (w1 + w2)  # normalize
-    combined = w1 * probas[0] + w2 * probas[1]
-    y_pred = (combined >= 0.5).astype(int)
-    return -f1_score(y_true, y_pred, pos_label=0)
-
-# Use validation set for optimization
-X_tr, X_val, y_tr, y_val = train_test_split(
-    X_train_prep, y_train, test_size=0.2, random_state=42
-)
-
-# Refit on training portion
-rf_opt = RandomForestClassifier(
-    n_estimators=400, max_depth=20, min_samples_split=3, min_samples_leaf=4,
-    max_features='sqrt', class_weight='balanced', random_state=42, n_jobs=-1
-)
-rf_opt.fit(X_tr, y_tr)
-rf_val_proba = rf_opt.predict_proba(X_val)[:, 1]
-
-xgb_opt = XGBClassifier(
-    n_estimators=500, learning_rate=0.05, max_depth=8, scale_pos_weight=1.5,
-    random_state=42, n_jobs=-1
-)
-xgb_opt.fit(X_tr, y_tr)
-xgb_val_proba = xgb_opt.predict_proba(X_val)[:, 1]
-
-# Optimize weights
-result_opt = minimize(
-    ensemble_f1_rejected,
-    x0=[0.5, 0.5],
-    args=([rf_val_proba, xgb_val_proba], y_val),
-    bounds=[(0.1, 0.9), (0.1, 0.9)],
-    method='L-BFGS-B'
-)
-opt_w1, opt_w2 = result_opt.x
-opt_w1, opt_w2 = opt_w1 / (opt_w1 + opt_w2), opt_w2 / (opt_w1 + opt_w2)
-print(f"Optimal weights: RF={opt_w1:.3f}, XGB={opt_w2:.3f}")
-
-# Apply to test set
-ens_opt_proba = opt_w1 * rf_proba + opt_w2 * xgb_low_proba
-results.append(evaluate(y_test, ens_opt_proba, f"Ensemble (RF={opt_w1:.2f}, XGB={opt_w2:.2f})"))
-
-# Also try calibrated ensemble
-ens_cal_proba = opt_w1 * rf_cal_proba + opt_w2 * xgb_cal_proba
-results.append(evaluate(y_test, ens_cal_proba, f"Calibrated Ensemble (opt weights)"))
-
-# Standard ensembles
-for rf_w in [0.6, 0.7, 0.8]:
-    xgb_w = 1 - rf_w
-    ens_proba = rf_w * rf_cal_proba + xgb_w * xgb_cal_proba
-    results.append(evaluate(y_test, ens_proba, f"Cal. Ensemble ({int(rf_w*100)}/{int(xgb_w*100)})"))
-
-print("✓ Ensemble optimization done")
-
-# =============================================================================
-# 7. STRATEGY 5: COST-SENSITIVE LEARNING (Custom)
-# =============================================================================
-print("\n" + "="*70)
-print("STRATEGY 5: ADJUSTED SAMPLE WEIGHTS")
-print("="*70)
-
-# Give higher weight to rejected samples during training
-reject_mask = (y_train == 0)
-sample_weights = np.ones(len(y_train))
-
-for multiplier in [1.5, 2.0, 2.5]:
-    sample_weights = np.ones(len(y_train))
-    sample_weights[reject_mask] = multiplier
-    
-    rf_sw = RandomForestClassifier(
-        n_estimators=400, max_depth=20, min_samples_split=3, min_samples_leaf=4,
-        max_features='sqrt', random_state=42, n_jobs=-1
-    )
-    rf_sw.fit(X_train_prep, y_train, sample_weight=sample_weights)
-    proba = rf_sw.predict_proba(X_test_prep)[:, 1]
-    results.append(evaluate(y_test, proba, f"RF (sample_weight={multiplier}x reject)"))
-    print(f"✓ RF sample_weight={multiplier}x done")
-
-# =============================================================================
-# 8. COMPILE AND ANALYZE RESULTS
-# =============================================================================
-print("\n" + "="*70)
-print("RESULTS SUMMARY (All with 0.5 threshold)")
-print("="*70)
+rf_baseline = RandomForestClassifier(n_estimators=400, max_depth=20, 
+                                      class_weight='balanced', random_state=42, n_jobs=-1)
+rf_baseline.fit(X_train_prep, y_train)
+results.append(evaluate('RF (unoptimized)', rf_baseline.predict_proba(X_test_prep)[:, 1]))
 
 results_df = pd.DataFrame(results)
 results_df['Balanced_F1'] = 2 * (results_df['F1_Merged'] * results_df['F1_Rejected']) / \
                             (results_df['F1_Merged'] + results_df['F1_Rejected'])
 
-# Sort by F1_Rejected
-print("\n--- TOP 10 BY F1_REJECTED (threshold=0.5) ---")
-top_rej = results_df.nlargest(10, 'F1_Rejected')
-print(top_rej[['Strategy', 'F1_Rejected', 'Recall_Rejected', 'Precision_Rejected', 
-               'F1_Merged', 'Brier Score']].to_string(index=False, float_format='%.4f'))
-
-print("\n--- TOP 10 BY BALANCED F1 (threshold=0.5) ---")
-top_bal = results_df.nlargest(10, 'Balanced_F1')
-print(top_bal[['Strategy', 'Balanced_F1', 'F1_Merged', 'F1_Rejected',
-               'ROC-AUC']].to_string(index=False, float_format='%.4f'))
-
-print("\n--- TOP 10 BY RECALL_REJECTED (threshold=0.5) ---")
-top_rec = results_df.nlargest(10, 'Recall_Rejected')
-print(top_rec[['Strategy', 'Recall_Rejected', 'Precision_Rejected', 
-               'F1_Rejected', 'F1_Merged']].to_string(index=False, float_format='%.4f'))
+print("\n" + results_df.sort_values('F1_Rejected', ascending=False).to_string(index=False, float_format='%.4f'))
 
 # =============================================================================
-# 9. BEST MODEL SELECTION
+# 7. WINNER SELECTION
 # =============================================================================
 print("\n" + "="*70)
-print("RECOMMENDATION (WITH 0.5 THRESHOLD)")
+print("WINNER")
 print("="*70)
 
-best_rej = results_df.loc[results_df['F1_Rejected'].idxmax()]
-best_bal = results_df.loc[results_df['Balanced_F1'].idxmax()]
-best_cal = results_df.loc[results_df['Brier Score'].idxmin()]
+best_idx = results_df['F1_Rejected'].idxmax()
+best = results_df.loc[best_idx]
 
 print(f"""
-┌─────────────────────────────────────────────────────────────────────────┐
-│  BEST FOR CATCHING REJECTIONS:                                          │
-│    Strategy: {best_rej['Strategy']:<50}      │
-│    F1_Rejected: {best_rej['F1_Rejected']:.4f}  |  Recall_Rejected: {best_rej['Recall_Rejected']:.4f}       │
-│    F1_Merged: {best_rej['F1_Merged']:.4f}                                            │
-├─────────────────────────────────────────────────────────────────────────┤
-│  BEST BALANCED:                                                         │
-│    Strategy: {best_bal['Strategy']:<50}      │
-│    Balanced_F1: {best_bal['Balanced_F1']:.4f}                                        │
-│    F1_Merged: {best_bal['F1_Merged']:.4f}  |  F1_Rejected: {best_bal['F1_Rejected']:.4f}              │
-├─────────────────────────────────────────────────────────────────────────┤
-│  BEST CALIBRATED (most meaningful 0.5 threshold):                       │
-│    Strategy: {best_cal['Strategy']:<50}      │
-│    Brier Score: {best_cal['Brier Score']:.4f} (lower = better calibration)           │
-│    F1_Rejected: {best_cal['F1_Rejected']:.4f}                                        │
-└─────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│  🏆 BEST MODEL: {best['Model']:<45}│
+├────────────────────────────────────────────────────────────────────┤
+│  F1_Rejected:       {best['F1_Rejected']:.4f}                                      │
+│  Recall_Rejected:   {best['Recall_Rejected']:.4f}                                      │
+│  Precision_Rejected:{best['Precision_Rejected']:.4f}                                      │
+│  F1_Merged:         {best['F1_Merged']:.4f}                                      │
+│  Balanced_F1:       {best['Balanced_F1']:.4f}                                      │
+└────────────────────────────────────────────────────────────────────┘
 """)
 
-# Save results
-results_df.to_csv('threshold_05_strategies_comparison.csv', index=False)
-print("Saved: threshold_05_strategies_comparison.csv")
+# =============================================================================
+# 8. SAVE EVERYTHING
+# =============================================================================
+print("="*70)
+print("SAVING MODELS")
+print("="*70)
+
+joblib.dump(xgb_opt, 'xgb_optimized.joblib')
+joblib.dump(rf_opt, 'rf_optimized.joblib')
+joblib.dump(preprocessor, 'preprocessor.joblib')
+joblib.dump({
+    'xgb_params': xgb_study.best_params,
+    'rf_params': rf_study.best_params,
+    'ensemble_weights': {'rf': best_rf_w, 'xgb': best_xgb_w}
+}, 'best_hyperparameters.joblib')
+
+print("✓ xgb_optimized.joblib")
+print("✓ rf_optimized.joblib")
+print("✓ preprocessor.joblib")
+print("✓ best_hyperparameters.joblib")
+
+# =============================================================================
+# 9. PRINT FINAL CONFIGURATIONS
+# =============================================================================
+print("\n" + "="*70)
+print("FINAL CONFIGURATIONS (for your report)")
+print("="*70)
+
+print("\n--- XGBoost ---")
+print("XGBClassifier(")
+for k, v in xgb_study.best_params.items():
+    if isinstance(v, float):
+        print(f"    {k}={v:.4f},")
+    else:
+        print(f"    {k}={v},")
+print(")")
+
+print("\n--- Random Forest ---")
+print("RandomForestClassifier(")
+for k, v in rf_study.best_params.items():
+    if isinstance(v, float):
+        print(f"    {k}={v:.4f},")
+    else:
+        print(f"    {k}={v},")
+print(f"    class_weight={{0: {reject_weight:.4f}, 1: 1.0}},")
+print(")")
+
+print(f"\n--- Ensemble ---")
+print(f"ensemble_proba = {best_rf_w:.3f} * rf_proba + {best_xgb_w:.3f} * xgb_proba")
+
+results_df.to_csv('optimization_results.csv', index=False)
+print("\n✓ Saved: optimization_results.csv")
