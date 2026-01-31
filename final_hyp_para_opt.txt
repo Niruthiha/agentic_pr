@@ -1,179 +1,111 @@
 ======================================================================
-MODEL × STRATEGY FULL COMPARISON
+STRATEGIES WITH FIXED 0.5 THRESHOLD
 ======================================================================
 Train: 25027 | Test: 6257
+Merge rate: 0.766
 
 ======================================================================
-TRAINING MODELS
+STRATEGY 1: BASELINE MODELS
 ======================================================================
-Training Random Forest...
-Training XGBoost (Fixed)...
-Training XGBoost (Original - high weight)...
-✅ All models trained.
+✓ RF baseline done
+✓ XGB baseline done
 
 ======================================================================
-GENERATING OOF PREDICTIONS
+STRATEGY 2: PROBABILITY CALIBRATION
 ======================================================================
-OOF predictions generated.
+Makes probabilities meaningful so 0.5 = true 50% chance
+✓ RF + Platt done
+✓ RF + Isotonic done
+✓ XGB + Platt done
 
 ======================================================================
-CALCULATING STRATEGY PARAMETERS
+STRATEGY 3: CLASS WEIGHT TUNING
 ======================================================================
-  Claude_Code: rate=0.681, tier=MEDIUM_RISK, thresh_60=0.52
-  Copilot: rate=0.548, tier=HIGH_RISK, thresh_60=0.33
-  Cursor: rate=0.739, tier=MEDIUM_RISK, thresh_60=0.60
-  Devin: rate=0.551, tier=HIGH_RISK, thresh_60=0.36
-  OpenAI_Codex: rate=0.857, tier=LOW_RISK, thresh_60=0.67
+Adjust model bias so 0.5 threshold catches more rejections
+✓ RF reject_weight=1.5 done
+✓ RF reject_weight=2.0 done
+✓ RF reject_weight=2.5 done
+✓ RF reject_weight=3.0 done
+✓ XGB spw=0.5 done
+✓ XGB spw=0.8 done
+✓ XGB spw=1.0 done
+✓ XGB spw=1.2 done
 
 ======================================================================
-EVALUATING ALL MODEL × STRATEGY COMBINATIONS
+STRATEGY 4: OPTIMIZED ENSEMBLE WEIGHTS
 ======================================================================
+Optimal weights: RF=0.500, XGB=0.500
+✓ Ensemble optimization done
 
 ======================================================================
-TOP 10 COMBINATIONS BY F1_REJECTED
+STRATEGY 5: ADJUSTED SAMPLE WEIGHTS
 ======================================================================
-              Model         Strategy  F1_Rejected  Recall_Rejected  Precision_Rejected  F1_Merged  ROC-AUC
-     Ensemble 50/50 Aggressive (0.6)       0.6354           0.6074              0.6661     0.9003   0.8629
-     Ensemble 70/30 Aggressive (0.6)       0.6325           0.6486              0.6171     0.8899   0.8626
-            RF Only Aggressive (0.6)       0.6252           0.7119              0.5573     0.8711   0.8596
-     Ensemble 70/30       Risk Tiers       0.6243           0.5967              0.6544     0.8972   0.8626
-            RF Only   Baseline (0.5)       0.6221           0.5896              0.6585     0.8978   0.8596
-     Ensemble 50/50       Risk Tiers       0.6173           0.5548              0.6958     0.9032   0.8629
-     Ensemble 70/30   Baseline (0.5)       0.6144           0.5349              0.7217     0.9062   0.8626
-            RF Only       Risk Tiers       0.6115           0.6721              0.5608     0.8725   0.8596
-XGB Fixed (spw=1.5) Aggressive (0.6)       0.6081           0.5270              0.7187     0.9052   0.8572
-     Ensemble 50/50   Baseline (0.5)       0.6035           0.5050              0.7497     0.9082   0.8629
+✓ RF sample_weight=1.5x done
+✓ RF sample_weight=2.0x done
+✓ RF sample_weight=2.5x done
 
 ======================================================================
-TOP 10 COMBINATIONS BY RECALL_REJECTED
-======================================================================
-         Model               Strategy  Recall_Rejected  Precision_Rejected  F1_Rejected  F1_Merged  Accuracy
-       RF Only       Aggressive (0.6)           0.7119              0.5573       0.6252     0.8711    0.8082
-       RF Only             Risk Tiers           0.6721              0.5608       0.6115     0.8725    0.8081
-Ensemble 70/30       Aggressive (0.6)           0.6486              0.6171       0.6325     0.8899    0.8306
-       RF Only Per-Agent (60% Recall)           0.6088              0.5501       0.5780     0.8691    0.8002
-Ensemble 50/50       Aggressive (0.6)           0.6074              0.6661       0.6354     0.9003    0.8434
-Ensemble 70/30             Risk Tiers           0.5967              0.6544       0.6243     0.8972    0.8386
-       RF Only         Baseline (0.5)           0.5896              0.6585       0.6221     0.8978    0.8391
-       RF Only Per-Agent (55% Recall)           0.5576              0.5735       0.5655     0.8763    0.8074
-Ensemble 50/50             Risk Tiers           0.5548              0.6958       0.6173     0.9032    0.8455
-Ensemble 70/30 Per-Agent (60% Recall)           0.5356              0.6414       0.5837     0.8919    0.8284
-
-======================================================================
-BEST BALANCED (Harmonic Mean of F1_Merged & F1_Rejected)
-======================================================================
-              Model         Strategy  Balanced_F1  F1_Merged  F1_Rejected  ROC-AUC
-     Ensemble 50/50 Aggressive (0.6)       0.7450     0.9003       0.6354   0.8629
-     Ensemble 70/30 Aggressive (0.6)       0.7394     0.8899       0.6325   0.8626
-     Ensemble 70/30       Risk Tiers       0.7362     0.8972       0.6243   0.8626
-            RF Only   Baseline (0.5)       0.7350     0.8978       0.6221   0.8596
-     Ensemble 50/50       Risk Tiers       0.7334     0.9032       0.6173   0.8629
-     Ensemble 70/30   Baseline (0.5)       0.7323     0.9062       0.6144   0.8626
-            RF Only Aggressive (0.6)       0.7280     0.8711       0.6252   0.8596
-XGB Fixed (spw=1.5) Aggressive (0.6)       0.7275     0.9052       0.6081   0.8572
-     Ensemble 50/50   Baseline (0.5)       0.7251     0.9082       0.6035   0.8629
-            RF Only       Risk Tiers       0.7190     0.8725       0.6115   0.8596
-
-======================================================================
-F1_REJECTED: MODEL × STRATEGY MATRIX
-======================================================================
-Strategy                Aggressive (0.6)  Baseline (0.5)  Conservative (0.4)  Per-Agent (55% Recall)  Per-Agent (60% Recall)  Risk Tiers
-Model                                                                                                                                   
-Ensemble 50/50                    0.6354          0.6035              0.5370                  0.5636                  0.5738      0.6173
-Ensemble 70/30                    0.6325          0.6144              0.5546                  0.5670                  0.5837      0.6243
-RF Only                           0.6252          0.6221              0.5654                  0.5655                  0.5780      0.6115
-XGB Fixed (spw=1.5)               0.6081          0.5718              0.5238                  0.5409                  0.5593      0.5911
-XGB Original (spw=8.8)            0.4997          0.4461              0.3976                  0.4024                  0.4172      0.4476
-
-======================================================================
-RECALL_REJECTED: MODEL × STRATEGY MATRIX
-======================================================================
-Strategy                Aggressive (0.6)  Baseline (0.5)  Conservative (0.4)  Per-Agent (55% Recall)  Per-Agent (60% Recall)  Risk Tiers
-Model                                                                                                                                   
-Ensemble 50/50                    0.6074          0.5050              0.3997                  0.4651                  0.4979      0.5548
-Ensemble 70/30                    0.6486          0.5349              0.4211                  0.4936                  0.5356      0.5967
-RF Only                           0.7119          0.5896              0.4488                  0.5576                  0.6088      0.6721
-XGB Fixed (spw=1.5)               0.5270          0.4502              0.3834                  0.4182                  0.4445      0.4858
-XGB Original (spw=8.8)            0.3521          0.2987              0.2539                  0.2603                  0.2731      0.3009
-
-======================================================================
-F1_MERGED: MODEL × STRATEGY MATRIX
-======================================================================
-Strategy                Aggressive (0.6)  Baseline (0.5)  Conservative (0.4)  Per-Agent (55% Recall)  Per-Agent (60% Recall)  Risk Tiers
-Model                                                                                                                                   
-Ensemble 50/50                    0.9003          0.9082              0.9070                  0.9006                  0.8968      0.9032
-Ensemble 70/30                    0.8899          0.9062              0.9084                  0.8947                  0.8919      0.8972
-RF Only                           0.8711          0.8978              0.9057                  0.8763                  0.8691      0.8725
-XGB Fixed (spw=1.5)               0.9052          0.9080              0.9063                  0.9035                  0.9042      0.9074
-XGB Original (spw=8.8)            0.9059          0.9019              0.8990                  0.8984                  0.8995      0.9017
-
-======================================================================
-PER-AGENT BREAKDOWN: TOP 3 COMBINATIONS
+RESULTS SUMMARY (All with 0.5 threshold)
 ======================================================================
 
->>> Ensemble 50/50 + Aggressive (0.6)
-------------------------------------------------------------
-Agent           F1_Merged    F1_Rejected  Recall_Rej  
-Claude_Code     0.826        0.323        0.417       
-Copilot         0.767        0.754        0.828       
-Cursor          0.881        0.541        0.492       
-Devin           0.762        0.736        0.815       
-OpenAI_Codex    0.935        0.459        0.352       
+--- TOP 10 BY F1_REJECTED (threshold=0.5) ---
+                      Strategy  F1_Rejected  Recall_Rejected  Precision_Rejected  F1_Merged  Brier Score
+                 XGB (spw=0.5)       0.6251           0.5960              0.6573     0.8978       0.1183
+         RF (balanced weights)       0.6221           0.5896              0.6585     0.8978       0.1223
+        RF (reject_weight=3.0)       0.6167           0.5761              0.6634     0.8981       0.1210
+                 XGB (spw=0.8)       0.6120           0.5334              0.7177     0.9055       0.1131
+        RF (reject_weight=2.5)       0.6098           0.5519              0.6813     0.9004       0.1192
+RF (sample_weight=2.5x reject)       0.6098           0.5519              0.6813     0.9004       0.1192
+        RF (reject_weight=2.0)       0.6031           0.5284              0.7023     0.9027       0.1176
+RF (sample_weight=2.0x reject)       0.6031           0.5284              0.7023     0.9027       0.1176
+  Ensemble (RF=0.50, XGB=0.50)       0.6011           0.5021              0.7487     0.9078       0.1113
+                 XGB (spw=1.0)       0.5965           0.4979              0.7439     0.9069       0.1127
 
->>> Ensemble 70/30 + Aggressive (0.6)
-------------------------------------------------------------
-Agent           F1_Merged    F1_Rejected  Recall_Rej  
-Claude_Code     0.810        0.389        0.583       
-Copilot         0.724        0.743        0.872       
-Cursor          0.874        0.547        0.525       
-Devin           0.714        0.723        0.855       
-OpenAI_Codex    0.931        0.472        0.391       
+--- TOP 10 BY BALANCED F1 (threshold=0.5) ---
+                      Strategy  Balanced_F1  F1_Merged  F1_Rejected  ROC-AUC
+                 XGB (spw=0.5)       0.7371     0.8978       0.6251   0.8555
+         RF (balanced weights)       0.7350     0.8978       0.6221   0.8596
+        RF (reject_weight=3.0)       0.7313     0.8981       0.6167   0.8607
+                 XGB (spw=0.8)       0.7304     0.9055       0.6120   0.8556
+        RF (reject_weight=2.5)       0.7272     0.9004       0.6098   0.8605
+RF (sample_weight=2.5x reject)       0.7272     0.9004       0.6098   0.8605
+  Ensemble (RF=0.50, XGB=0.50)       0.7233     0.9078       0.6011   0.8636
+        RF (reject_weight=2.0)       0.7231     0.9027       0.6031   0.8582
+RF (sample_weight=2.0x reject)       0.7231     0.9027       0.6031   0.8582
+                 XGB (spw=1.0)       0.7196     0.9069       0.5965   0.8567
 
->>> RF Only + Aggressive (0.6)
-------------------------------------------------------------
-Agent           F1_Merged    F1_Rejected  Recall_Rej  
-Claude_Code     0.764        0.381        0.667       
-Copilot         0.655        0.719        0.895       
-Cursor          0.861        0.615        0.721       
-Devin           0.637        0.702        0.900       
-OpenAI_Codex    0.921        0.495        0.476       
+--- TOP 10 BY RECALL_REJECTED (threshold=0.5) ---
+                      Strategy  Recall_Rejected  Precision_Rejected  F1_Rejected  F1_Merged
+                 XGB (spw=0.5)           0.5960              0.6573       0.6251     0.8978
+         RF (balanced weights)           0.5896              0.6585       0.6221     0.8978
+        RF (reject_weight=3.0)           0.5761              0.6634       0.6167     0.8981
+        RF (reject_weight=2.5)           0.5519              0.6813       0.6098     0.9004
+RF (sample_weight=2.5x reject)           0.5519              0.6813       0.6098     0.9004
+                 XGB (spw=0.8)           0.5334              0.7177       0.6120     0.9055
+        RF (reject_weight=2.0)           0.5284              0.7023       0.6031     0.9027
+RF (sample_weight=2.0x reject)           0.5284              0.7023       0.6031     0.9027
+  Ensemble (RF=0.50, XGB=0.50)           0.5021              0.7487       0.6011     0.9078
+                 XGB (spw=1.0)           0.4979              0.7439       0.5965     0.9069
 
 ======================================================================
-SAVING RESULTS
-======================================================================
-Saved: model_strategy_full_comparison.csv
-Saved: pivot_f1_rejected.csv
-Saved: pivot_recall_rejected.csv
-Saved: pivot_f1_merged.csv
-
-======================================================================
-FINAL RECOMMENDATION
+RECOMMENDATION (WITH 0.5 THRESHOLD)
 ======================================================================
 
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         WINNING COMBINATIONS                                │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  BEST BALANCED (F1 both classes):                                           │
-│    Model:    Ensemble 50/50                                                              │
-│    Strategy: Aggressive (0.6)                                                         │
-│    Balanced_F1: 0.7450                           │
-│    F1_Merged: 0.9003 | F1_Rejected: 0.6354              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  BEST FOR CATCHING REJECTIONS (F1_Rejected):                                │
-│    Model:    Ensemble 50/50                                                            │
-│    Strategy: Aggressive (0.6)                                                       │
-│    F1_Rejected: 0.6354                         │
-│    Recall_Rejected: 0.6074                 │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  MAXIMUM REJECTION RECALL:                                                  │
-│    Model:    RF Only                                                                      │
-│    Strategy: Aggressive (0.6)                                                          │
-│    Recall_Rejected: 0.7119                    │
-│    (Precision trade-off: 0.5573)           │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│  BEST FOR CATCHING REJECTIONS:                                          │
+│    Strategy: XGB (spw=0.5)                                           │
+│    F1_Rejected: 0.6251  |  Recall_Rejected: 0.5960       │
+│    F1_Merged: 0.8978                                            │
+├─────────────────────────────────────────────────────────────────────────┤
+│  BEST BALANCED:                                                         │
+│    Strategy: XGB (spw=0.5)                                           │
+│    Balanced_F1: 0.7371                                        │
+│    F1_Merged: 0.8978  |  F1_Rejected: 0.6251              │
+├─────────────────────────────────────────────────────────────────────────┤
+│  BEST CALIBRATED (most meaningful 0.5 threshold):                       │
+│    Strategy: Calibrated Ensemble (opt weights)                       │
+│    Brier Score: 0.1112 (lower = better calibration)           │
+│    F1_Rejected: 0.5941                                        │
+└─────────────────────────────────────────────────────────────────────────┘
 
-Output files:
-  - model_strategy_full_comparison.csv (all 30 combinations)
-  - pivot_f1_rejected.csv
-  - pivot_recall_rejected.csv  
-  - pivot_f1_merged.csv
+Saved: threshold_05_strategies_comparison.csv
