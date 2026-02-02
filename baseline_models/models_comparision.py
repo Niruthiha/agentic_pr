@@ -33,7 +33,7 @@ print("LOADING AND PREPARING DATA (V2 - With New Features)")
 print("="*70)
 
 # Load Data - NOW WITH NEW FEATURES
-df = pd.read_parquet('/home/niruthi/ai_code/data_with_raw_ci_reviews.parquet')
+df = pd.read_parquet('/home/niruthi/ai_code/data/engineered_features_v2.parquet')
 
 # Define Leaky & Redundant Columns (UPDATED)
 leaky_cols = [
